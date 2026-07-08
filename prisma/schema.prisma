@@ -259,6 +259,17 @@ model AuditItem {
   @@map("audit_items")
 }
 
+// ---------- Pengaturan aplikasi (key-value) ----------
+// Menyimpan pengaturan global: tema warna, nama fakultas, logo, format kode aset, dll.
+// Contoh baris tema: key = "theme", value = { primary, primaryDark, accent, ... }
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
 // ---------- Log aktivitas ----------
 model ActivityLog {
   id        String   @id @default(uuid()) @db.Uuid

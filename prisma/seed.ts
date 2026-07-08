@@ -5,6 +5,7 @@
  * Idempoten: aman dijalankan berulang (upsert per kategori & field).
  */
 import { PrismaClient, FieldType } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -187,7 +188,49 @@ const categories: CategoryDef[] = [
   },
 ];
 
+// Tema default (warna primer & warna lain-lain). Bisa diubah admin via API/menu Pengaturan.
+const defaultTheme = {
+  primary: '#059669',      // warna primer
+  primaryDark: '#047857',  // header / area gelap
+  accent: '#10B981',       // aksen
+  ink: '#0F172A',          // teks utama
+  muted: '#64748B',        // teks sekunder
+  surface: '#FFFFFF',      // latar kartu
+  tint: '#ECFDF5',         // latar lembut
+  border: '#E2E8F0',       // garis
+  danger: '#DC2626',       // error / bahaya
+  bg: '#F8FAFC',           // latar halaman
+};
+
+async function seedAdmin() {
+  const username = process.env.ADMIN_USERNAME ?? 'admin';
+  const password = process.env.ADMIN_PASSWORD ?? 'admin12345';
+  const nama = process.env.ADMIN_NAMA ?? 'Administrator';
+
+  const existing = await prisma.user.findUnique({ where: { username } });
+  if (existing) {
+    console.log(`  Akun admin "${username}" sudah ada, lewati.`);
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.user.create({
+    data: { nama, username, passwordHash, role: 'admin' },
+  });
+  console.log(`  ✓ Akun admin awal "${username}" dibuat.`);
+}
+
 async function main() {
+  console.log('Seeding akun admin awal...');
+  await seedAdmin();
+
+  console.log('Seeding tema default...');
+  await prisma.setting.upsert({
+    where: { key: 'theme' },
+    update: {}, // jangan timpa tema yang mungkin sudah diubah admin
+    create: { key: 'theme', value: defaultTheme },
+  });
+
   console.log('Seeding kategori awal...');
   for (const c of categories) {
     const category = await prisma.category.upsert({

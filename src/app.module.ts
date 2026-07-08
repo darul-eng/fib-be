@@ -1,15 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppController } from './app.controller';
 import { CategoriesModule } from './categories/categories.module';
+import { SettingsModule } from './settings/settings.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 20 }]),
     PrismaModule,
     CategoriesModule,
-    // TODO Tahap 0: AuthModule (login manual + peran). Keycloak menyusul (Tahap 8).
+    SettingsModule,
+    AuthModule,
     // TODO Tahap 1+: LocationsModule, AssetsModule, MovementsModule, dst.
   ],
   controllers: [AppController],
