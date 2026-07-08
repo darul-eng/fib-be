@@ -1,10 +1,12 @@
 /**
- * Seed kategori awal SIMAF (barang umum kantor fakultas) + atribut dinamisnya.
+ * Seed data master SIMAF: akun admin/developer, tema, kategori aset
+ * (+ atribut dinamisnya), dan lokasi (hierarki Gedung → Lantai → Ruangan).
  * Jalankan: npm run seed   (atau: npx prisma db seed)
  *
- * Idempoten: aman dijalankan berulang (upsert per kategori & field).
+ * Idempoten: aman dijalankan berulang (upsert/cek-sebelum-buat per entitas).
  */
-import { PrismaClient, FieldType } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
+import { PrismaClient, FieldType, LocationType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -188,6 +190,70 @@ const categories: CategoryDef[] = [
   },
 ];
 
+type LocationDef = {
+  nama: string;
+  children?: LocationDef[];
+};
+
+// Contoh awal hierarki Gedung → Lantai → Ruangan. Admin bebas menambah/mengubah lewat menu Lokasi.
+const locations: LocationDef[] = [
+  {
+    nama: 'Gedung Dekanat FIB',
+    children: [
+      {
+        nama: 'Lantai 1',
+        children: [
+          { nama: 'Ruang Dekan' },
+          { nama: 'Ruang Tata Usaha' },
+          { nama: 'Lobi Utama' },
+        ],
+      },
+      {
+        nama: 'Lantai 2',
+        children: [{ nama: 'Ruang Dosen' }, { nama: 'Ruang Rapat' }],
+      },
+    ],
+  },
+  {
+    nama: 'Gedung Perkuliahan FIB',
+    children: [
+      {
+        nama: 'Lantai 1',
+        children: [{ nama: 'Ruang Kuliah 101' }, { nama: 'Ruang Kuliah 102' }],
+      },
+      {
+        nama: 'Lantai 2',
+        children: [{ nama: 'Ruang Kuliah 201' }, { nama: 'Laboratorium Bahasa' }],
+      },
+    ],
+  },
+];
+
+function generateQrToken(): string {
+  return randomBytes(8).toString('base64url');
+}
+
+async function getOrCreateLocation(nama: string, tipe: LocationType, parentId: string | null) {
+  const existing = await prisma.location.findFirst({ where: { nama, tipe, parentId } });
+  if (existing) return existing;
+  return prisma.location.create({ data: { nama, tipe, parentId, qrToken: generateQrToken() } });
+}
+
+async function seedLocationTree(defs: LocationDef[], tipe: LocationType, parentId: string | null) {
+  const childTipe: Record<LocationType, LocationType | null> = {
+    gedung: 'lantai',
+    lantai: 'ruangan',
+    ruangan: null,
+  };
+
+  for (const def of defs) {
+    const location = await getOrCreateLocation(def.nama, tipe, parentId);
+    if (def.children?.length) {
+      await seedLocationTree(def.children, childTipe[tipe]!, location.id);
+    }
+  }
+}
+
 // Tema default (warna primer & warna lain-lain). Bisa diubah admin via API/menu Pengaturan.
 const defaultTheme = {
   primary: '#059669',      // warna primer
@@ -274,6 +340,10 @@ async function main() {
     console.log(`  ✓ ${c.nama} (${c.fields.length} field)`);
   }
   console.log(`Selesai. ${categories.length} kategori.`);
+
+  console.log('Seeding lokasi awal...');
+  await seedLocationTree(locations, 'gedung', null);
+  console.log(`Selesai. ${locations.length} gedung.`);
 }
 
 main()
