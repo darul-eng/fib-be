@@ -1,5 +1,9 @@
-import { Body, Controller, Get, Param, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { SettingsService } from './settings.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('settings')
 export class SettingsController {
@@ -11,7 +15,8 @@ export class SettingsController {
     return this.settings.get(key);
   }
 
-  // TODO: batasi ke peran admin setelah AuthModule siap (Tahap 0).
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.admin)
   @Put(':key')
   set(@Param('key') key: string, @Body() body: unknown) {
     return this.settings.set(key, body as any);
