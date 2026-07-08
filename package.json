@@ -1,7 +1,7 @@
 {
   "name": "siaf-backend",
   "version": "0.1.0",
-  "description": "SIAF - Sistem Inventaris Aset Fakultas (backend, NestJS + Prisma)",
+  "description": "SIMAF - Sistem Manajemen Aset FIB Universitas Hasanuddin (backend, NestJS + Prisma)",
   "private": true,
   "scripts": {
     "build": "nest build",

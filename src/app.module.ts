@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppController } from './app.controller';
 import { CategoriesModule } from './categories/categories.module';
+import { LocationsModule } from './locations/locations.module';
 import { SettingsModule } from './settings/settings.module';
 import { AuthModule } from './auth/auth.module';
 
@@ -13,9 +14,10 @@ import { AuthModule } from './auth/auth.module';
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 20 }]),
     PrismaModule,
     CategoriesModule,
+    LocationsModule,
     SettingsModule,
     AuthModule,
-    // TODO Tahap 1+: LocationsModule, AssetsModule, MovementsModule, dst.
+    // TODO Tahap 2+: AssetsModule, MovementsModule, dst.
   ],
   controllers: [AppController],
 })

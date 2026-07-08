@@ -11,38 +11,38 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import { CategoriesService } from './categories.service';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/create-category.dto';
+import { LocationsService } from './locations.service';
+import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
-@Controller('categories')
-export class CategoriesController {
-  constructor(private readonly categories: CategoriesService) {}
+@Controller('locations')
+export class LocationsController {
+  constructor(private readonly locations: LocationsService) {}
 
   @Get()
   findAll() {
-    return this.categories.findAll();
+    return this.locations.findAll();
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.categories.findOne(id);
+    return this.locations.findOne(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.admin)
   @Post()
-  create(@Body() dto: CreateCategoryDto) {
-    return this.categories.create(dto);
+  create(@Body() dto: CreateLocationDto) {
+    return this.locations.create(dto);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.admin)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
-    return this.categories.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateLocationDto) {
+    return this.locations.update(id, dto);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -50,6 +50,6 @@ export class CategoriesController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
-    return this.categories.remove(id);
+    return this.locations.remove(id);
   }
 }

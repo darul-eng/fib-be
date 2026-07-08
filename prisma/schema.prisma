@@ -1,5 +1,6 @@
 // =====================================================================
-// SIAF — Prisma Schema, Fase 1 (MVP Inventaris Aset)
+// SIMAF — Sistem Manajemen Aset FIB Universitas Hasanuddin
+// Prisma Schema, Fase 1 (MVP Inventaris Aset)
 // PostgreSQL. Atribut dinamis = kolom JSONB (assets.attributes).
 // =====================================================================
 
