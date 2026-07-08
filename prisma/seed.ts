@@ -1,5 +1,5 @@
 /**
- * Seed kategori awal SIAF (barang umum kantor fakultas) + atribut dinamisnya.
+ * Seed kategori awal SIMAF (barang umum kantor fakultas) + atribut dinamisnya.
  * Jalankan: npm run seed   (atau: npx prisma db seed)
  *
  * Idempoten: aman dijalankan berulang (upsert per kategori & field).
@@ -202,14 +202,10 @@ const defaultTheme = {
   bg: '#F8FAFC',           // latar halaman
 };
 
-async function seedAdmin() {
-  const username = process.env.ADMIN_USERNAME ?? 'admin';
-  const password = process.env.ADMIN_PASSWORD ?? 'admin12345';
-  const nama = process.env.ADMIN_NAMA ?? 'Administrator';
-
+async function seedAdminUser(username: string, password: string, nama: string) {
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
-    console.log(`  Akun admin "${username}" sudah ada, lewati.`);
+    console.log(`  Akun "${username}" sudah ada, lewati.`);
     return;
   }
 
@@ -217,12 +213,26 @@ async function seedAdmin() {
   await prisma.user.create({
     data: { nama, username, passwordHash, role: 'admin' },
   });
-  console.log(`  ✓ Akun admin awal "${username}" dibuat.`);
+  console.log(`  ✓ Akun admin "${username}" dibuat.`);
 }
 
 async function main() {
   console.log('Seeding akun admin awal...');
-  await seedAdmin();
+  await seedAdminUser(
+    process.env.ADMIN_USERNAME ?? 'admin',
+    process.env.ADMIN_PASSWORD ?? 'admin12345',
+    process.env.ADMIN_NAMA ?? 'Administrator',
+  );
+
+  // Akun developer: role admin juga (di sistem ini admin = akses penuh),
+  // dipisah dari akun admin operasional supaya kredensial developer bisa
+  // diganti/dicabut sendiri tanpa mengganggu akun admin fakultas.
+  console.log('Seeding akun developer...');
+  await seedAdminUser(
+    process.env.DEV_USERNAME ?? 'developer',
+    process.env.DEV_PASSWORD ?? 'developer12345',
+    process.env.DEV_NAMA ?? 'Developer',
+  );
 
   console.log('Seeding tema default...');
   await prisma.setting.upsert({

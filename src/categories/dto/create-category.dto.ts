@@ -48,3 +48,19 @@ export class CreateCategoryDto {
   @Type(() => CategoryFieldDto)
   fields?: CategoryFieldDto[];
 }
+
+export class UpdateCategoryDto {
+  @IsOptional()
+  @IsString()
+  nama?: string;
+
+  @IsOptional()
+  @IsString()
+  deskripsi?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CategoryFieldDto)
+  fields?: CategoryFieldDto[];
+}
