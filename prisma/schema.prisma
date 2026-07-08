@@ -1,0 +1,276 @@
+// =====================================================================
+// SIAF — Prisma Schema, Fase 1 (MVP Inventaris Aset)
+// PostgreSQL. Atribut dinamis = kolom JSONB (assets.attributes).
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+enum UserRole {
+  admin
+  pimpinan
+}
+
+enum AuthProvider {
+  local
+  keycloak
+}
+
+enum UserStatus {
+  aktif
+  pending
+  nonaktif
+}
+
+enum LocationType {
+  gedung
+  lantai
+  ruangan
+}
+
+enum FieldType {
+  text
+  number
+  date
+  select
+  boolean
+}
+
+enum AssetCondition {
+  baik
+  rusak_ringan
+  rusak_berat
+  perbaikan
+  dihapus
+}
+
+enum MovementType {
+  lokasi
+  pemegang
+  kondisi
+}
+
+enum AuditStatus {
+  berjalan
+  selesai
+}
+
+enum AuditItemResult {
+  ditemukan
+  tidak_ditemukan
+  salah_ruangan
+  belum_terdaftar
+}
+
+// ---------- Users (akun sistem) ----------
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  nama         String
+  username     String?      @unique
+  email        String?      @unique
+  passwordHash String?      @map("password_hash") // null bila login via Keycloak
+  role         UserRole     @default(admin)
+  authProvider AuthProvider @default(local) @map("auth_provider")
+  keycloakSub  String?      @unique @map("keycloak_sub")
+  status       UserStatus   @default(aktif)
+  lastLoginAt  DateTime?    @map("last_login_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  assetsCreated Asset[]        @relation("AssetCreatedBy")
+  movements     Movement[]     @relation("MovementBy")
+  auditSessions AuditSession[]
+  activityLogs  ActivityLog[]
+
+  @@map("users")
+}
+
+// ---------- Kategori ----------
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  nama      String   @unique
+  deskripsi String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fields CategoryField[]
+  assets Asset[]
+
+  @@map("categories")
+}
+
+// ---------- Definisi atribut dinamis per kategori ----------
+model CategoryField {
+  id           String    @id @default(uuid()) @db.Uuid
+  categoryId   String    @map("category_id") @db.Uuid
+  label        String
+  key          String
+  tipe         FieldType @default(text)
+  wajib        Boolean   @default(false)
+  opsi         Json?
+  defaultValue String?   @map("default_value")
+  urutan       Int       @default(0)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, key])
+  @@index([categoryId])
+  @@map("category_fields")
+}
+
+// ---------- Lokasi / ruangan (hierarki gedung > lantai > ruangan) ----------
+model Location {
+  id        String       @id @default(uuid()) @db.Uuid
+  parentId  String?      @map("parent_id") @db.Uuid
+  nama      String
+  tipe      LocationType
+  qrToken   String       @unique @map("qr_token")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children Location[] @relation("LocationHierarchy")
+
+  assets        Asset[]
+  movementsFrom Movement[]     @relation("MoveFromLocation")
+  movementsTo   Movement[]     @relation("MoveToLocation")
+  auditSessions AuditSession[]
+
+  @@index([parentId])
+  @@map("locations")
+}
+
+// ---------- Orang / pemegang (data saja, bukan akun login) ----------
+model Person {
+  id        String   @id @default(uuid()) @db.Uuid
+  nama      String
+  nip       String?
+  unit      String?
+  email     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  assets        Asset[]
+  movementsFrom Movement[] @relation("MoveFromPerson")
+  movementsTo   Movement[] @relation("MoveToPerson")
+
+  @@map("persons")
+}
+
+// ---------- Aset ----------
+model Asset {
+  id          String         @id @default(uuid()) @db.Uuid
+  kode        String         @unique
+  qrToken     String         @unique @map("qr_token")
+  nama        String
+  categoryId  String         @map("category_id") @db.Uuid
+  kondisi     AssetCondition @default(baik)
+  tahunBeli   Int?           @map("tahun_beli")
+  hargaBeli   Decimal?       @map("harga_beli") @db.Decimal(14, 2)
+  sumberDana  String?        @map("sumber_dana")
+  locationId  String?        @map("location_id") @db.Uuid
+  personId    String?        @map("person_id") @db.Uuid
+  fotoPath    String?        @map("foto_path")
+  attributes  Json           @default("{}")
+  createdById String?        @map("created_by") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  deletedAt   DateTime?      @map("deleted_at")
+
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  location  Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  person    Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  createdBy User?     @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  movements  Movement[]
+  auditItems AuditItem[]
+
+  @@index([categoryId])
+  @@index([locationId])
+  @@index([personId])
+  @@index([kondisi])
+  @@index([deletedAt])
+  @@map("assets")
+}
+
+// ---------- Riwayat perpindahan ----------
+model Movement {
+  id             String          @id @default(uuid()) @db.Uuid
+  assetId        String          @map("asset_id") @db.Uuid
+  tipe           MovementType
+  fromLocationId String?         @map("from_location_id") @db.Uuid
+  toLocationId   String?         @map("to_location_id") @db.Uuid
+  fromPersonId   String?         @map("from_person_id") @db.Uuid
+  toPersonId     String?         @map("to_person_id") @db.Uuid
+  fromKondisi    AssetCondition? @map("from_kondisi")
+  toKondisi      AssetCondition? @map("to_kondisi")
+  movedById      String?         @map("moved_by_user_id") @db.Uuid
+  catatan        String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  fromLocation Location? @relation("MoveFromLocation", fields: [fromLocationId], references: [id])
+  toLocation   Location? @relation("MoveToLocation", fields: [toLocationId], references: [id])
+  fromPerson   Person?   @relation("MoveFromPerson", fields: [fromPersonId], references: [id])
+  toPerson     Person?   @relation("MoveToPerson", fields: [toPersonId], references: [id])
+  movedBy      User?     @relation("MovementBy", fields: [movedById], references: [id], onDelete: SetNull)
+
+  @@index([assetId])
+  @@index([createdAt])
+  @@map("movements")
+}
+
+// ---------- Stok opname / audit ruangan ----------
+model AuditSession {
+  id          String      @id @default(uuid()) @db.Uuid
+  locationId  String      @map("location_id") @db.Uuid
+  conductedBy String?     @map("conducted_by") @db.Uuid
+  status      AuditStatus @default(berjalan)
+  startedAt   DateTime    @default(now()) @map("started_at")
+  finishedAt  DateTime?   @map("finished_at")
+  catatan     String?
+
+  location Location    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  user     User?       @relation(fields: [conductedBy], references: [id], onDelete: SetNull)
+  items    AuditItem[]
+
+  @@map("audit_sessions")
+}
+
+model AuditItem {
+  id             String          @id @default(uuid()) @db.Uuid
+  auditSessionId String          @map("audit_session_id") @db.Uuid
+  assetId        String?         @map("asset_id") @db.Uuid
+  result         AuditItemResult
+  scannedToken   String?         @map("scanned_token")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  session AuditSession @relation(fields: [auditSessionId], references: [id], onDelete: Cascade)
+  asset   Asset?       @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([auditSessionId])
+  @@map("audit_items")
+}
+
+// ---------- Log aktivitas ----------
+model ActivityLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  aksi      String
+  entitas   String
+  entitasId String?  @map("entitas_id") @db.Uuid
+  detail    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entitas, entitasId])
+  @@map("activity_logs")
+}
