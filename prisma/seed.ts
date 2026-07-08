@@ -187,7 +187,28 @@ const categories: CategoryDef[] = [
   },
 ];
 
+// Tema default (warna primer & warna lain-lain). Bisa diubah admin via API/menu Pengaturan.
+const defaultTheme = {
+  primary: '#1C7293',      // warna primer
+  primaryDark: '#0E3542',  // header / area gelap
+  accent: '#02C39A',       // aksen
+  ink: '#1E293B',          // teks utama
+  muted: '#5B6B75',        // teks sekunder
+  surface: '#FFFFFF',      // latar kartu
+  tint: '#EEF4F6',         // latar lembut
+  border: '#E3EEF1',       // garis
+  danger: '#B42318',       // error / bahaya
+  bg: '#FFFFFF',           // latar halaman
+};
+
 async function main() {
+  console.log('Seeding tema default...');
+  await prisma.setting.upsert({
+    where: { key: 'theme' },
+    update: {}, // jangan timpa tema yang mungkin sudah diubah admin
+    create: { key: 'theme', value: defaultTheme },
+  });
+
   console.log('Seeding kategori awal...');
   for (const c of categories) {
     const category = await prisma.category.upsert({
