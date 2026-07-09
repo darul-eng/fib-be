@@ -52,4 +52,11 @@ export class LocationsController {
   remove(@Param('id') id: string) {
     return this.locations.remove(id);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.admin)
+  @Post(':id/regenerate-token')
+  regenerateToken(@Param('id') id: string) {
+    return this.locations.regenerateQrToken(id);
+  }
 }

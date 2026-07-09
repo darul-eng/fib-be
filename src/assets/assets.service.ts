@@ -1,16 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { customAlphabet } from 'nanoid';
 import { PrismaService } from '../prisma/prisma.service';
 import { PeopleService } from './people.service';
 import { validateAttributes } from './attributes.util';
 import { CreateAssetDto, UpdateAssetDto } from './dto/create-asset.dto';
 import { QueryAssetDto } from './dto/query-asset.dto';
-
-const generateQrToken = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  10,
-);
+import { generateQrToken } from '../common/qr-token.util';
 
 const ASSET_INCLUDE = {
   category: { include: { fields: { orderBy: { urutan: 'asc' as const } } } },
@@ -138,6 +133,16 @@ export class AssetsService {
     return this.prisma.asset.update({
       where: { id },
       data: { deletedAt: new Date(), kondisi: 'dihapus' },
+    });
+  }
+
+  // Token baru bila kertas QR fisik rusak/pudar — URL lama otomatis tidak berlaku.
+  async regenerateQrToken(id: string) {
+    await this.findOne(id);
+    return this.prisma.asset.update({
+      where: { id },
+      data: { qrToken: generateQrToken() },
+      include: ASSET_INCLUDE,
     });
   }
 

@@ -96,6 +96,13 @@ export class AssetsController {
 
   @UseGuards(RolesGuard)
   @Roles(UserRole.admin)
+  @Post(':id/regenerate-token')
+  regenerateToken(@Param('id', ParseUUIDPipe) id: string) {
+    return this.assets.regenerateQrToken(id);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.admin)
   @Post(':id/photo')
   @UseInterceptors(
     FileInterceptor('foto', {
