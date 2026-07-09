@@ -11,6 +11,7 @@ import { AssetsModule } from './assets/assets.module';
 import { MovementsModule } from './movements/movements.module';
 import { QrModule } from './qr/qr.module';
 import { PublicModule } from './public/public.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PublicModule } from './public/public.module';
     MovementsModule,
     QrModule,
     PublicModule,
+    DashboardModule,
   ],
   controllers: [AppController],
 })
