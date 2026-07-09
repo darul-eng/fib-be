@@ -1,5 +1,5 @@
 /**
- * Seed data master SIMAF: akun admin/developer, tema, kategori aset
+ * Seed data master SIAP: akun admin/developer, tema, kategori aset
  * (+ atribut dinamisnya), dan lokasi (hierarki Gedung → Lantai → Ruangan).
  * Jalankan: npm run seed   (atau: npx prisma db seed)
  *
