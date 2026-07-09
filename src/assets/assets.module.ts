@@ -7,5 +7,6 @@ import { PeopleService } from './people.service';
 @Module({
   controllers: [AssetsController],
   providers: [AssetsService, AssetsImportService, PeopleService],
+  exports: [AssetsService, PeopleService],
 })
 export class AssetsModule {}

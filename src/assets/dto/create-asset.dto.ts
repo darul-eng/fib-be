@@ -9,7 +9,7 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
-import { PartialType } from '@nestjs/mapped-types';
+import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { AssetCondition } from '@prisma/client';
 
 export class CreateAssetDto {
@@ -48,7 +48,11 @@ export class CreateAssetDto {
   attributes?: Record<string, unknown>;
 }
 
-export class UpdateAssetDto extends PartialType(CreateAssetDto) {}
+// lokasi, kondisi, dan pemegang HANYA boleh berubah lewat aksi "Pindahkan aset"
+// (modul movements) agar setiap perubahan tercatat di riwayat — lihat Tahap 3.
+export class UpdateAssetDto extends PartialType(
+  OmitType(CreateAssetDto, ['kondisi', 'locationId', 'holderName'] as const),
+) {}
 
 export class DuplicateAssetDto {
   @IsInt()
