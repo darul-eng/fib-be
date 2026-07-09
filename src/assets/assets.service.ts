@@ -109,21 +109,9 @@ export class AssetsService {
     });
     if (!category) throw new BadRequestException('Kategori tidak ditemukan');
 
-    if (dto.locationId) {
-      const location = await this.prisma.location.findUnique({ where: { id: dto.locationId } });
-      if (!location) throw new BadRequestException('Lokasi tidak ditemukan');
-    }
-
     const attributes =
       dto.attributes !== undefined
         ? validateAttributes(category.fields, dto.attributes)
-        : undefined;
-
-    const person =
-      dto.holderName !== undefined
-        ? dto.holderName
-          ? await this.people.resolveByName(dto.holderName)
-          : null
         : undefined;
 
     return this.prisma.asset.update({
@@ -131,12 +119,9 @@ export class AssetsService {
       data: {
         nama: dto.nama,
         categoryId: dto.categoryId,
-        kondisi: dto.kondisi,
         tahunBeli: dto.tahunBeli,
         hargaBeli: dto.hargaBeli,
         sumberDana: dto.sumberDana,
-        locationId: dto.locationId,
-        personId: dto.holderName !== undefined ? (person?.id ?? null) : undefined,
         attributes: attributes as Prisma.InputJsonValue | undefined,
       },
       include: ASSET_INCLUDE,

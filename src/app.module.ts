@@ -8,6 +8,7 @@ import { LocationsModule } from './locations/locations.module';
 import { SettingsModule } from './settings/settings.module';
 import { AuthModule } from './auth/auth.module';
 import { AssetsModule } from './assets/assets.module';
+import { MovementsModule } from './movements/movements.module';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { AssetsModule } from './assets/assets.module';
     SettingsModule,
     AuthModule,
     AssetsModule,
-    // TODO Tahap 3+: MovementsModule, dst.
+    MovementsModule,
   ],
   controllers: [AppController],
 })
