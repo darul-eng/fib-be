@@ -60,6 +60,11 @@ export class AssetsController {
     res.send(buffer);
   }
 
+  @Get('by-token/:token')
+  findByToken(@Param('token') token: string) {
+    return this.assets.findByToken(token);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.assets.findOne(id);
