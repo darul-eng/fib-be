@@ -1,6 +1,7 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { PublicService } from './public.service';
+import { QueryPublicLocationDto } from './dto/query-public-location.dto';
 
 // Endpoint publik, read-only, tanpa login — rate-limited untuk cegah penyalahgunaan/scraping.
 @UseGuards(ThrottlerGuard)
@@ -15,7 +16,7 @@ export class PublicController {
   }
 
   @Get('locations/:token')
-  getLocation(@Param('token') token: string) {
-    return this.publicService.getLocationByToken(token);
+  getLocation(@Param('token') token: string, @Query() query: QueryPublicLocationDto) {
+    return this.publicService.getLocationByToken(token, query);
   }
 }
