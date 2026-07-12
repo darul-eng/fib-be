@@ -7,5 +7,6 @@ import { AssetsModule } from '../assets/assets.module';
   imports: [AssetsModule],
   controllers: [MovementsController],
   providers: [MovementsService],
+  exports: [MovementsService],
 })
 export class MovementsModule {}
