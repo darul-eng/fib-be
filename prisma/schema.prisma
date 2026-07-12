@@ -115,6 +115,7 @@ model CategoryField {
   key          String
   tipe         FieldType @default(text)
   wajib        Boolean   @default(false)
+  isPublic     Boolean   @default(true) @map("is_public")
   opsi         Json?
   defaultValue String?   @map("default_value")
   urutan       Int       @default(0)

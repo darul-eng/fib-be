@@ -25,6 +25,10 @@ export class CategoryFieldDto {
   wajib?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   opsi?: string[];

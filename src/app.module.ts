@@ -9,6 +9,8 @@ import { SettingsModule } from './settings/settings.module';
 import { AuthModule } from './auth/auth.module';
 import { AssetsModule } from './assets/assets.module';
 import { MovementsModule } from './movements/movements.module';
+import { QrModule } from './qr/qr.module';
+import { PublicModule } from './public/public.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { MovementsModule } from './movements/movements.module';
     AuthModule,
     AssetsModule,
     MovementsModule,
+    QrModule,
+    PublicModule,
   ],
   controllers: [AppController],
 })

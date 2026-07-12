@@ -1,18 +1,14 @@
-import { randomBytes } from 'node:crypto';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, LocationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
+import { generateQrToken } from '../common/qr-token.util';
 
 const REQUIRED_PARENT_TYPE: Record<LocationType, LocationType | null> = {
   gedung: null,
   lantai: LocationType.gedung,
   ruangan: LocationType.lantai,
 };
-
-function generateQrToken(): string {
-  return randomBytes(8).toString('base64url');
-}
 
 @Injectable()
 export class LocationsService {
@@ -87,5 +83,14 @@ export class LocationsService {
       }
       throw e;
     }
+  }
+
+  // Token baru bila kertas QR fisik rusak/pudar — URL lama otomatis tidak berlaku.
+  async regenerateQrToken(id: string) {
+    await this.findOne(id);
+    return this.prisma.location.update({
+      where: { id },
+      data: { qrToken: generateQrToken() },
+    });
   }
 }
