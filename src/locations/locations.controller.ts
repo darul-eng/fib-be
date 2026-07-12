@@ -8,11 +8,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { LocationsService } from './locations.service';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
+import { QueryLocationDto } from './dto/query-location.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -22,8 +24,8 @@ export class LocationsController {
   constructor(private readonly locations: LocationsService) {}
 
   @Get()
-  findAll() {
-    return this.locations.findAll();
+  findAll(@Query() query: QueryLocationDto) {
+    return this.locations.findAll(query);
   }
 
   @Get(':id')

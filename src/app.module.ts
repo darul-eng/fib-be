@@ -12,6 +12,7 @@ import { MovementsModule } from './movements/movements.module';
 import { QrModule } from './qr/qr.module';
 import { PublicModule } from './public/public.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     QrModule,
     PublicModule,
     DashboardModule,
+    AuditModule,
   ],
   controllers: [AppController],
 })

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { QueryPublicLocationDto } from './dto/query-public-location.dto';
 
 const TIMELINE_LIMIT = 15;
 
@@ -63,30 +64,40 @@ export class PublicService {
     };
   }
 
-  async getLocationByToken(token: string) {
+  async getLocationByToken(token: string, query: QueryPublicLocationDto) {
     const location = await this.prisma.location.findUnique({ where: { qrToken: token } });
     if (!location) throw new NotFoundException('Ruangan tidak ditemukan');
 
-    const assets = await this.prisma.asset.findMany({
-      where: { locationId: location.id, deletedAt: null },
-      select: { kode: true, nama: true, kondisi: true, qrToken: true },
-      orderBy: { nama: 'asc' },
-    });
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = { locationId: location.id, deletedAt: null };
 
-    const ringkasanKondisi = assets.reduce<Record<string, number>>((acc, a) => {
-      acc[a.kondisi] = (acc[a.kondisi] ?? 0) + 1;
-      return acc;
-    }, {});
+    // Ringkasan & total dihitung dari SELURUH aset ruangan, bukan hanya halaman aktif —
+    // hanya daftar aset (`aset`) yang dipaginasi untuk membatasi ukuran respons ke HP.
+    const [total, byKondisi, assets] = await Promise.all([
+      this.prisma.asset.count({ where }),
+      this.prisma.asset.groupBy({ by: ['kondisi'], where, _count: { _all: true } }),
+      this.prisma.asset.findMany({
+        where,
+        select: { kode: true, nama: true, kondisi: true, qrToken: true },
+        orderBy: { nama: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
+    const ringkasanKondisi = Object.fromEntries(byKondisi.map((row) => [row.kondisi, row._count._all]));
     const ancestors = await this.getAncestorNames(location.parentId);
 
     return {
       nama: location.nama,
       tipe: location.tipe,
       lokasiInduk: ancestors.length ? ancestors.join(' › ') : null,
-      totalAset: assets.length,
+      totalAset: total,
       ringkasanKondisi,
       aset: assets,
+      page,
+      limit,
     };
   }
 

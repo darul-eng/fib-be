@@ -63,6 +63,16 @@ export class AssetsService {
     return asset;
   }
 
+  // Lookup untuk alur scan QR (PWA): token didapat dari URL publik /a/{token}.
+  async findByToken(qrToken: string) {
+    const asset = await this.prisma.asset.findFirst({
+      where: { qrToken, deletedAt: null },
+      include: ASSET_INCLUDE,
+    });
+    if (!asset) throw new NotFoundException('Aset tidak ditemukan');
+    return asset;
+  }
+
   async create(dto: CreateAssetDto, userId: string) {
     const category = await this.prisma.category.findUnique({
       where: { id: dto.categoryId },

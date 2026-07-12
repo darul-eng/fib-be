@@ -2,7 +2,10 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma, LocationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
+import { QueryLocationDto } from './dto/query-location.dto';
 import { generateQrToken } from '../common/qr-token.util';
+
+const SEARCH_LIMIT_DEFAULT = 20;
 
 const REQUIRED_PARENT_TYPE: Record<LocationType, LocationType | null> = {
   gedung: null,
@@ -14,10 +17,43 @@ const REQUIRED_PARENT_TYPE: Record<LocationType, LocationType | null> = {
 export class LocationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
+  // Tiga mode, dipilih dari query yang dikirim:
+  // - `search`/`tipe` : pencarian nama dan/atau filter tipe (dipakai pemilih ruangan
+  //   cari-sambil-ketik — termasuk saat kotak pencarian masih kosong), dibatasi `limit`.
+  //   Cek `tipe` juga (bukan cuma `search`) karena query string kosong ('') dibuang oleh
+  //   frontend (lihat toQueryString), jadi "belum mengetik apa-apa" tidak selalu terlihat
+  //   sebagai `search` di sini — tanpa ini, pemilih ruangan yang belum diketik jatuh ke
+  //   cabang default di bawah yang justru mengecualikan ruangan.
+  // - `parentId` : anak langsung satu lokasi (dipakai buka-cabang pohon secara lambat).
+  // - (default)  : gedung + lantai saja — selalu sedikit, aman dimuat penuh untuk pohon awal
+  //   & pilihan induk lokasi. Ruangan (yang jumlahnya bisa ratusan) tidak pernah ikut di sini.
+  findAll(query: QueryLocationDto = {}) {
+    const include = { parent: { select: { id: true, nama: true, tipe: true } } } as const;
+
+    if (query.search !== undefined || query.tipe !== undefined) {
+      return this.prisma.location.findMany({
+        where: {
+          nama: query.search !== undefined ? { contains: query.search, mode: 'insensitive' } : undefined,
+          tipe: query.tipe,
+        },
+        orderBy: { nama: 'asc' },
+        take: query.limit ?? SEARCH_LIMIT_DEFAULT,
+        include,
+      });
+    }
+
+    if (query.parentId !== undefined) {
+      return this.prisma.location.findMany({
+        where: { parentId: query.parentId },
+        orderBy: { nama: 'asc' },
+        include,
+      });
+    }
+
     return this.prisma.location.findMany({
+      where: { tipe: { not: LocationType.ruangan } },
       orderBy: [{ tipe: 'asc' }, { nama: 'asc' }],
-      include: { parent: { select: { id: true, nama: true, tipe: true } } },
+      include,
     });
   }
 
