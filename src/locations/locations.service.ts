@@ -13,6 +13,19 @@ const REQUIRED_PARENT_TYPE: Record<LocationType, LocationType | null> = {
   ruangan: LocationType.lantai,
 };
 
+// Kebalikan dari REQUIRED_PARENT_TYPE: tipe anak yang sah untuk tiap tipe induk.
+const REQUIRED_PARENT_TYPE_BY_PARENT: Record<LocationType, LocationType | null> = {
+  gedung: LocationType.lantai,
+  lantai: LocationType.ruangan,
+  ruangan: null,
+};
+
+const TYPE_LABEL: Record<LocationType, string> = {
+  gedung: 'Gedung',
+  lantai: 'Lantai',
+  ruangan: 'Ruangan',
+};
+
 @Injectable()
 export class LocationsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -83,8 +96,39 @@ export class LocationsService {
     }
   }
 
+  private async assertNoDuplicateSibling(
+    tipe: LocationType,
+    parentId: string | undefined,
+    nama: string,
+    excludeId?: string,
+  ) {
+    const existing = await this.prisma.location.findFirst({
+      where: {
+        tipe,
+        parentId: parentId ?? null,
+        nama: { equals: nama, mode: 'insensitive' },
+        id: excludeId ? { not: excludeId } : undefined,
+      },
+    });
+    if (existing) {
+      throw new ConflictException(`${TYPE_LABEL[tipe]} dengan nama "${nama}" sudah ada di induk lokasi ini`);
+    }
+  }
+
+  private async assertChildrenCompatible(id: string, newTipe: LocationType) {
+    const requiredChildType = REQUIRED_PARENT_TYPE_BY_PARENT[newTipe];
+    const children = await this.prisma.location.findMany({ where: { parentId: id }, select: { tipe: true } });
+    const incompatible = children.some((c) => c.tipe !== requiredChildType);
+    if (incompatible) {
+      throw new ConflictException(
+        `Tipe lokasi tidak bisa diubah menjadi ${newTipe} karena masih memiliki sub-lokasi yang tidak sesuai`,
+      );
+    }
+  }
+
   async create(dto: CreateLocationDto) {
     await this.validateParent(dto.tipe, dto.parentId);
+    await this.assertNoDuplicateSibling(dto.tipe, dto.parentId, dto.nama);
 
     return this.prisma.location.create({
       data: {
@@ -100,8 +144,13 @@ export class LocationsService {
     const current = await this.findOne(id);
     const tipe = dto.tipe ?? current.tipe;
     const parentId = dto.parentId !== undefined ? dto.parentId : (current.parentId ?? undefined);
+    const nama = dto.nama ?? current.nama;
 
     await this.validateParent(tipe, parentId);
+    await this.assertNoDuplicateSibling(tipe, parentId, nama, id);
+    if (dto.tipe && dto.tipe !== current.tipe) {
+      await this.assertChildrenCompatible(id, dto.tipe);
+    }
 
     return this.prisma.location.update({
       where: { id },

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { LocationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PeopleService } from './people.service';
 import { validateAttributes } from './attributes.util';
@@ -27,7 +27,7 @@ export class AssetsService {
     const where: Prisma.AssetWhereInput = {
       deletedAt: null,
       categoryId: query.categoryId,
-      locationId: query.locationId,
+      ...(await this.resolveLocationFilter(query.locationId)),
       kondisi: query.kondisi,
       tahunBeli: query.tahunBeli,
       ...(query.search
@@ -52,6 +52,39 @@ export class AssetsService {
     ]);
 
     return { data, total, page, limit };
+  }
+
+  // Aset selalu ditempatkan di ruangan (lihat validasi di create()), jadi filter
+  // `locationId` bertipe gedung/lantai perlu diperluas turun ke ruangan-ruangan di
+  // bawahnya — kalau tidak, memfilter per gedung/lantai selalu menghasilkan 0 aset.
+  private async resolveLocationFilter(locationId?: string): Promise<Prisma.AssetWhereInput> {
+    if (!locationId) return {};
+
+    const location = await this.prisma.location.findUnique({
+      where: { id: locationId },
+      select: { tipe: true },
+    });
+    if (!location || location.tipe === LocationType.ruangan) {
+      return { locationId };
+    }
+
+    if (location.tipe === LocationType.lantai) {
+      const rooms = await this.prisma.location.findMany({
+        where: { parentId: locationId, tipe: LocationType.ruangan },
+        select: { id: true },
+      });
+      return { locationId: { in: rooms.map((r) => r.id) } };
+    }
+
+    const lantais = await this.prisma.location.findMany({
+      where: { parentId: locationId, tipe: LocationType.lantai },
+      select: { id: true },
+    });
+    const rooms = await this.prisma.location.findMany({
+      where: { parentId: { in: lantais.map((l) => l.id) }, tipe: LocationType.ruangan },
+      select: { id: true },
+    });
+    return { locationId: { in: rooms.map((r) => r.id) } };
   }
 
   async findOne(id: string) {
