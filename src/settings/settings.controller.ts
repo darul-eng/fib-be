@@ -16,7 +16,7 @@ export class SettingsController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.admin)
+  @Roles(UserRole.developer)
   @Put(':key')
   set(@Param('key') key: string, @Body() body: unknown) {
     return this.settings.set(key, body as any);

@@ -70,6 +70,38 @@ export class LocationsService {
     });
   }
 
+  // Jumlah aset per lokasi (gedung/lantai/ruangan) untuk badge di pohon lokasi.
+  // Dua query saja (bukan N+1): hitung aset per ruangan lewat groupBy, lalu
+  // jumlahkan ke atas (ruangan -> lantai -> gedung) di memori pakai peta parentId
+  // yang ringan (cuma id+parentId, bukan seluruh kolom lokasi).
+  async getAssetCounts(): Promise<Record<string, number>> {
+    const [grouped, allLocations] = await Promise.all([
+      this.prisma.asset.groupBy({
+        by: ['locationId'],
+        where: { deletedAt: null, locationId: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.location.findMany({ select: { id: true, parentId: true } }),
+    ]);
+
+    const parentOf = new Map(allLocations.map((l) => [l.id, l.parentId]));
+    const counts: Record<string, number> = {};
+
+    for (const g of grouped) {
+      if (!g.locationId) continue;
+      const count = g._count._all;
+      counts[g.locationId] = (counts[g.locationId] ?? 0) + count;
+
+      let parentId = parentOf.get(g.locationId);
+      while (parentId) {
+        counts[parentId] = (counts[parentId] ?? 0) + count;
+        parentId = parentOf.get(parentId);
+      }
+    }
+
+    return counts;
+  }
+
   async findOne(id: string) {
     const location = await this.prisma.location.findUnique({
       where: { id },

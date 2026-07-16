@@ -6,7 +6,7 @@
  * Idempoten: aman dijalankan berulang (upsert/cek-sebelum-buat per entitas).
  */
 import { randomBytes } from 'node:crypto';
-import { PrismaClient, FieldType, LocationType } from '@prisma/client';
+import { PrismaClient, FieldType, LocationType, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -268,7 +268,7 @@ const defaultTheme = {
   bg: '#F8FAFC',           // latar halaman
 };
 
-async function seedAdminUser(username: string, password: string, nama: string) {
+async function seedUser(username: string, password: string, nama: string, role: UserRole) {
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
     console.log(`  Akun "${username}" sudah ada, lewati.`);
@@ -277,27 +277,29 @@ async function seedAdminUser(username: string, password: string, nama: string) {
 
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.user.create({
-    data: { nama, username, passwordHash, role: 'admin' },
+    data: { nama, username, passwordHash, role },
   });
-  console.log(`  ✓ Akun admin "${username}" dibuat.`);
+  console.log(`  ✓ Akun ${role} "${username}" dibuat.`);
 }
 
 async function main() {
   console.log('Seeding akun admin awal...');
-  await seedAdminUser(
+  await seedUser(
     process.env.ADMIN_USERNAME ?? 'admin',
     process.env.ADMIN_PASSWORD ?? 'admin12345',
     process.env.ADMIN_NAMA ?? 'Administrator',
+    'admin',
   );
 
-  // Akun developer: role admin juga (di sistem ini admin = akses penuh),
-  // dipisah dari akun admin operasional supaya kredensial developer bisa
-  // diganti/dicabut sendiri tanpa mengganggu akun admin fakultas.
+  // Akun developer: peran tersendiri (bukan admin) — satu-satunya yang boleh
+  // mengubah Pengaturan sistem, dipisah dari akun admin operasional supaya
+  // kredensial developer bisa diganti/dicabut sendiri.
   console.log('Seeding akun developer...');
-  await seedAdminUser(
+  await seedUser(
     process.env.DEV_USERNAME ?? 'developer',
     process.env.DEV_PASSWORD ?? 'developer12345',
     process.env.DEV_NAMA ?? 'Developer',
+    'developer',
   );
 
   console.log('Seeding tema default...');

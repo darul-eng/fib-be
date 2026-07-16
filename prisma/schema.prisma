@@ -17,6 +17,7 @@ datasource db {
 enum UserRole {
   admin
   pimpinan
+  developer
 }
 
 enum AuthProvider {

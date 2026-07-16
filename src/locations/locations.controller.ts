@@ -28,6 +28,11 @@ export class LocationsController {
     return this.locations.findAll(query);
   }
 
+  @Get('asset-counts')
+  getAssetCounts() {
+    return this.locations.getAssetCounts();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.locations.findOne(id);
