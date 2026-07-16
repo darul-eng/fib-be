@@ -17,6 +17,8 @@ datasource db {
 enum UserRole {
   admin
   pimpinan
+  developer
+  warehouse
 }
 
 enum AuthProvider {
@@ -135,6 +137,9 @@ model Location {
   nama      String
   tipe      LocationType
   qrToken   String       @unique @map("qr_token")
+  // Menandai ruangan sebagai "Gudang" tujuan default Menu Warehouse (5.12).
+  // Hanya satu lokasi boleh true pada satu waktu — dijaga di LocationsService.
+  isWarehouse Boolean    @default(false) @map("is_warehouse")
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
 

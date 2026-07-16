@@ -13,6 +13,7 @@ import { QrModule } from './qr/qr.module';
 import { PublicModule } from './public/public.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AuditModule } from './audit/audit.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AuditModule } from './audit/audit.module';
     PublicModule,
     DashboardModule,
     AuditModule,
+    WarehouseModule,
   ],
   controllers: [AppController],
 })

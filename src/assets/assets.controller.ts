@@ -34,7 +34,7 @@ import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 const PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('assets')
 export class AssetsController {
   constructor(
@@ -60,6 +60,9 @@ export class AssetsController {
     res.send(buffer);
   }
 
+  // Dipakai baik oleh alur mutasi admin maupun scan Menu Warehouse (5.12) —
+  // dibuka eksplisit untuk warehouse karena RolesGuard default menolak role itu.
+  @Roles(UserRole.admin, UserRole.pimpinan, UserRole.warehouse)
   @Get('by-token/:token')
   findByToken(@Param('token') token: string) {
     return this.assets.findByToken(token);

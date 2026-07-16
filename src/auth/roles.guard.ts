@@ -12,9 +12,19 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!required || required.length === 0) return true;
 
     const { user } = context.switchToHttp().getRequest();
-    return !!user && required.includes(user.role);
+    if (!user) return false;
+    if (user.role === UserRole.developer) return true;
+
+    if (!required || required.length === 0) {
+      // Role `warehouse` sengaja dikecualikan dari kebijakan "izinkan siapa pun login"
+      // — akses menu di luar Menu Warehouse harus ditolak dari sisi backend (PRD 5.12),
+      // bukan cuma disembunyikan di UI. Endpoint yang memang boleh diakses warehouse
+      // (mis. GET /assets/by-token) menandainya eksplisit lewat @Roles(UserRole.warehouse).
+      return user.role !== UserRole.warehouse;
+    }
+
+    return required.includes(user.role);
   }
 }

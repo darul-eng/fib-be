@@ -3,8 +3,9 @@ import type { Response } from 'express';
 import { DashboardService } from './dashboard.service';
 import { QueryDashboardDto } from './dto/query-dashboard.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboard: DashboardService) {}

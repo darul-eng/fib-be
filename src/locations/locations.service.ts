@@ -13,6 +13,19 @@ const REQUIRED_PARENT_TYPE: Record<LocationType, LocationType | null> = {
   ruangan: LocationType.lantai,
 };
 
+// Kebalikan dari REQUIRED_PARENT_TYPE: tipe anak yang sah untuk tiap tipe induk.
+const REQUIRED_PARENT_TYPE_BY_PARENT: Record<LocationType, LocationType | null> = {
+  gedung: LocationType.lantai,
+  lantai: LocationType.ruangan,
+  ruangan: null,
+};
+
+const TYPE_LABEL: Record<LocationType, string> = {
+  gedung: 'Gedung',
+  lantai: 'Lantai',
+  ruangan: 'Ruangan',
+};
+
 @Injectable()
 export class LocationsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -57,6 +70,38 @@ export class LocationsService {
     });
   }
 
+  // Jumlah aset per lokasi (gedung/lantai/ruangan) untuk badge di pohon lokasi.
+  // Dua query saja (bukan N+1): hitung aset per ruangan lewat groupBy, lalu
+  // jumlahkan ke atas (ruangan -> lantai -> gedung) di memori pakai peta parentId
+  // yang ringan (cuma id+parentId, bukan seluruh kolom lokasi).
+  async getAssetCounts(): Promise<Record<string, number>> {
+    const [grouped, allLocations] = await Promise.all([
+      this.prisma.asset.groupBy({
+        by: ['locationId'],
+        where: { deletedAt: null, locationId: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.location.findMany({ select: { id: true, parentId: true } }),
+    ]);
+
+    const parentOf = new Map(allLocations.map((l) => [l.id, l.parentId]));
+    const counts: Record<string, number> = {};
+
+    for (const g of grouped) {
+      if (!g.locationId) continue;
+      const count = g._count._all;
+      counts[g.locationId] = (counts[g.locationId] ?? 0) + count;
+
+      let parentId = parentOf.get(g.locationId);
+      while (parentId) {
+        counts[parentId] = (counts[parentId] ?? 0) + count;
+        parentId = parentOf.get(parentId);
+      }
+    }
+
+    return counts;
+  }
+
   async findOne(id: string) {
     const location = await this.prisma.location.findUnique({
       where: { id },
@@ -83,8 +128,39 @@ export class LocationsService {
     }
   }
 
+  private async assertNoDuplicateSibling(
+    tipe: LocationType,
+    parentId: string | undefined,
+    nama: string,
+    excludeId?: string,
+  ) {
+    const existing = await this.prisma.location.findFirst({
+      where: {
+        tipe,
+        parentId: parentId ?? null,
+        nama: { equals: nama, mode: 'insensitive' },
+        id: excludeId ? { not: excludeId } : undefined,
+      },
+    });
+    if (existing) {
+      throw new ConflictException(`${TYPE_LABEL[tipe]} dengan nama "${nama}" sudah ada di induk lokasi ini`);
+    }
+  }
+
+  private async assertChildrenCompatible(id: string, newTipe: LocationType) {
+    const requiredChildType = REQUIRED_PARENT_TYPE_BY_PARENT[newTipe];
+    const children = await this.prisma.location.findMany({ where: { parentId: id }, select: { tipe: true } });
+    const incompatible = children.some((c) => c.tipe !== requiredChildType);
+    if (incompatible) {
+      throw new ConflictException(
+        `Tipe lokasi tidak bisa diubah menjadi ${newTipe} karena masih memiliki sub-lokasi yang tidak sesuai`,
+      );
+    }
+  }
+
   async create(dto: CreateLocationDto) {
     await this.validateParent(dto.tipe, dto.parentId);
+    await this.assertNoDuplicateSibling(dto.tipe, dto.parentId, dto.nama);
 
     return this.prisma.location.create({
       data: {
@@ -100,8 +176,13 @@ export class LocationsService {
     const current = await this.findOne(id);
     const tipe = dto.tipe ?? current.tipe;
     const parentId = dto.parentId !== undefined ? dto.parentId : (current.parentId ?? undefined);
+    const nama = dto.nama ?? current.nama;
 
     await this.validateParent(tipe, parentId);
+    await this.assertNoDuplicateSibling(tipe, parentId, nama, id);
+    if (dto.tipe && dto.tipe !== current.tipe) {
+      await this.assertChildrenCompatible(id, dto.tipe);
+    }
 
     return this.prisma.location.update({
       where: { id },
@@ -128,5 +209,25 @@ export class LocationsService {
       where: { id },
       data: { qrToken: generateQrToken() },
     });
+  }
+
+  // Menandai/membatalkan satu ruangan sebagai "Gudang" — tujuan default tombol
+  // Masuk di Menu Warehouse (PRD 5.12). Hanya satu lokasi boleh isWarehouse=true
+  // sekaligus, jadi menandai lokasi baru otomatis membatalkan yang lama.
+  async setWarehouse(id: string) {
+    const location = await this.findOne(id);
+    if (location.tipe !== LocationType.ruangan) {
+      throw new ConflictException('Hanya lokasi bertipe Ruangan yang bisa dijadikan Gudang');
+    }
+
+    if (location.isWarehouse) {
+      return this.prisma.location.update({ where: { id }, data: { isWarehouse: false } });
+    }
+
+    const [, updated] = await this.prisma.$transaction([
+      this.prisma.location.updateMany({ where: { isWarehouse: true }, data: { isWarehouse: false } }),
+      this.prisma.location.update({ where: { id }, data: { isWarehouse: true } }),
+    ]);
+    return updated;
   }
 }
