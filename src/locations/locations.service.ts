@@ -210,4 +210,24 @@ export class LocationsService {
       data: { qrToken: generateQrToken() },
     });
   }
+
+  // Menandai/membatalkan satu ruangan sebagai "Gudang" — tujuan default tombol
+  // Masuk di Menu Warehouse (PRD 5.12). Hanya satu lokasi boleh isWarehouse=true
+  // sekaligus, jadi menandai lokasi baru otomatis membatalkan yang lama.
+  async setWarehouse(id: string) {
+    const location = await this.findOne(id);
+    if (location.tipe !== LocationType.ruangan) {
+      throw new ConflictException('Hanya lokasi bertipe Ruangan yang bisa dijadikan Gudang');
+    }
+
+    if (location.isWarehouse) {
+      return this.prisma.location.update({ where: { id }, data: { isWarehouse: false } });
+    }
+
+    const [, updated] = await this.prisma.$transaction([
+      this.prisma.location.updateMany({ where: { isWarehouse: true }, data: { isWarehouse: false } }),
+      this.prisma.location.update({ where: { id }, data: { isWarehouse: true } }),
+    ]);
+    return updated;
+  }
 }

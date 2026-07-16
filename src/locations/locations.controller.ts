@@ -66,4 +66,11 @@ export class LocationsController {
   regenerateToken(@Param('id') id: string) {
     return this.locations.regenerateQrToken(id);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.admin)
+  @Post(':id/set-warehouse')
+  setWarehouse(@Param('id') id: string) {
+    return this.locations.setWarehouse(id);
+  }
 }

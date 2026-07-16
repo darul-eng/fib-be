@@ -227,7 +227,15 @@ const locations: LocationDef[] = [
       },
     ],
   },
+  {
+    nama: 'Gudang FIB',
+    children: [{ nama: 'Lantai 1', children: [{ nama: 'Ruang Gudang Aset' }] }],
+  },
 ];
+
+// Nama ruangan yang ditandai sebagai Gudang (lihat Location.isWarehouse) — hanya
+// contoh awal, admin bebas memindahkan tanda ini ke ruangan lain lewat menu Lokasi.
+const GUDANG_ROOM_NAME = 'Ruang Gudang Aset';
 
 function generateQrToken(): string {
   return randomBytes(8).toString('base64url');
@@ -302,6 +310,14 @@ async function main() {
     'developer',
   );
 
+  console.log('Seeding akun warehouse...');
+  await seedUser(
+    process.env.WAREHOUSE_USERNAME ?? 'warehouse',
+    process.env.WAREHOUSE_PASSWORD ?? 'warehouse12345',
+    process.env.WAREHOUSE_NAMA ?? 'Petugas Gudang',
+    'warehouse',
+  );
+
   console.log('Seeding tema default...');
   await prisma.setting.upsert({
     where: { key: 'theme' },
@@ -346,6 +362,17 @@ async function main() {
   console.log('Seeding lokasi awal...');
   await seedLocationTree(locations, 'gedung', null);
   console.log(`Selesai. ${locations.length} gedung.`);
+
+  const belumAdaGudang = !(await prisma.location.findFirst({ where: { isWarehouse: true } }));
+  if (belumAdaGudang) {
+    const ruangGudang = await prisma.location.findFirst({
+      where: { nama: GUDANG_ROOM_NAME, tipe: 'ruangan' },
+    });
+    if (ruangGudang) {
+      await prisma.location.update({ where: { id: ruangGudang.id }, data: { isWarehouse: true } });
+      console.log(`  ✓ "${GUDANG_ROOM_NAME}" ditandai sebagai Gudang.`);
+    }
+  }
 }
 
 main()
