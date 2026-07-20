@@ -2,10 +2,12 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { LocationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PeopleService } from './people.service';
+import { AssetPhotoService } from './asset-photo.service';
 import { validateAttributes } from './attributes.util';
 import { CreateAssetDto, UpdateAssetDto } from './dto/create-asset.dto';
 import { QueryAssetDto } from './dto/query-asset.dto';
 import { generateQrToken } from '../common/qr-token.util';
+import { ActivityLogService } from '../common/activity-log.service';
 
 const ASSET_INCLUDE = {
   category: { include: { fields: { orderBy: { urutan: 'asc' as const } } } },
@@ -18,6 +20,8 @@ export class AssetsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly people: PeopleService,
+    private readonly photos: AssetPhotoService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async findAll(query: QueryAssetDto) {
@@ -122,7 +126,7 @@ export class AssetsService {
     const person = dto.holderName ? await this.people.resolveByName(dto.holderName) : null;
     const tahun = dto.tahunBeli ?? new Date().getFullYear();
 
-    return this.createWithGeneratedCode({
+    const asset = await this.createWithGeneratedCode({
       nama: dto.nama,
       categoryId: dto.categoryId,
       categoryNama: category.nama,
@@ -135,9 +139,16 @@ export class AssetsService {
       attributes,
       createdById: userId,
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'asset_created',
+      entitas: 'asset',
+      entitasId: asset.id,
+    });
+    return asset;
   }
 
-  async update(id: string, dto: UpdateAssetDto) {
+  async update(id: string, dto: UpdateAssetDto, userId: string) {
     const existing = await this.findOne(id);
     const categoryId = dto.categoryId ?? existing.categoryId;
 
@@ -152,7 +163,7 @@ export class AssetsService {
         ? validateAttributes(category.fields, dto.attributes)
         : undefined;
 
-    return this.prisma.asset.update({
+    const updated = await this.prisma.asset.update({
       where: { id },
       data: {
         nama: dto.nama,
@@ -164,32 +175,67 @@ export class AssetsService {
       },
       include: ASSET_INCLUDE,
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'asset_updated',
+      entitas: 'asset',
+      entitasId: id,
+      detail: JSON.parse(JSON.stringify(dto)) as Prisma.InputJsonValue,
+    });
+    return updated;
   }
 
-  async updatePhoto(id: string, fotoPath: string) {
-    await this.findOne(id);
-    return this.prisma.asset.update({ where: { id }, data: { fotoPath }, include: ASSET_INCLUDE });
+  async updatePhoto(id: string, buffer: Buffer, userId: string) {
+    const existing = await this.findOne(id);
+    const fotoPath = await this.photos.saveFromBuffer(buffer);
+    const updated = await this.prisma.asset.update({
+      where: { id },
+      data: { fotoPath },
+      include: ASSET_INCLUDE,
+    });
+    await this.photos.deleteIfExists(existing.fotoPath);
+    await this.activityLog.record({
+      userId,
+      aksi: 'asset_photo_updated',
+      entitas: 'asset',
+      entitasId: id,
+    });
+    return updated;
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId: string) {
     await this.findOne(id);
-    return this.prisma.asset.update({
+    const removed = await this.prisma.asset.update({
       where: { id },
       data: { deletedAt: new Date(), kondisi: 'dihapus' },
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'asset_deleted',
+      entitas: 'asset',
+      entitasId: id,
+    });
+    return removed;
   }
 
   // Token baru bila kertas QR fisik rusak/pudar — URL lama otomatis tidak berlaku.
-  async regenerateQrToken(id: string) {
+  async regenerateQrToken(id: string, userId: string) {
     await this.findOne(id);
-    return this.prisma.asset.update({
+    const updated = await this.prisma.asset.update({
       where: { id },
       data: { qrToken: generateQrToken() },
       include: ASSET_INCLUDE,
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'asset_token_regenerated',
+      entitas: 'asset',
+      entitasId: id,
+    });
+    return updated;
   }
 
-  async duplicate(id: string, jumlah: number) {
+  async duplicate(id: string, jumlah: number, userId: string) {
     const source = await this.findOne(id);
     const created: Awaited<ReturnType<typeof this.createWithGeneratedCode>>[] = [];
 
@@ -210,6 +256,13 @@ export class AssetsService {
       created.push(asset);
     }
 
+    await this.activityLog.record({
+      userId,
+      aksi: 'asset_duplicated',
+      entitas: 'asset',
+      entitasId: id,
+      detail: { jumlah, createdIds: created.map((a) => a.id) },
+    });
     return created;
   }
 

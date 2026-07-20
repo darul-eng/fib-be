@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   HttpCode,
+  Param,
+  ParseUUIDPipe,
   Post,
   Res,
   UseGuards,
@@ -14,6 +16,8 @@ import { UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AUTH_COOKIE_NAME } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -29,6 +33,16 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
+  // path harus sama antara set & clear agar browser mengenali cookie yang sama
+  private cookieOptions() {
+    return {
+      httpOnly: true,
+      sameSite: 'lax' as const,
+      secure: this.config.get('NODE_ENV') === 'production',
+      path: '/',
+    };
+  }
+
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
@@ -39,9 +53,7 @@ export class AuthController {
   ) {
     const { token, user } = await this.auth.login(dto);
     res.cookie(AUTH_COOKIE_NAME, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: this.config.get('NODE_ENV') === 'production',
+      ...this.cookieOptions(),
       maxAge: COOKIE_MAX_AGE_MS,
     });
     return user;
@@ -50,7 +62,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(200)
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(AUTH_COOKIE_NAME);
+    res.clearCookie(AUTH_COOKIE_NAME, this.cookieOptions());
     return { ok: true };
   }
 
@@ -72,5 +84,35 @@ export class AuthController {
   @Get('users')
   listUsers() {
     return this.auth.listUsers();
+  }
+
+  // Self-service: siapa pun yang login boleh ganti password sendiri, tapi
+  // wajib membuktikan tahu password lama. Di-throttle seperti login untuk
+  // mencegah brute-force menebak password lama.
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('change-password')
+  @HttpCode(200)
+  async changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    await this.auth.changePassword(user.id, dto);
+    return { ok: true };
+  }
+
+  // Admin mengatur ulang password user lain (mis. lupa password) — tidak
+  // perlu password lama karena dilakukan oleh admin yang sudah terverifikasi.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.admin)
+  @Post('users/:id/reset-password')
+  @HttpCode(200)
+  async resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResetPasswordDto,
+    @CurrentUser() admin: AuthUser,
+  ) {
+    await this.auth.resetPassword(id, dto, admin.id);
+    return { ok: true };
   }
 }

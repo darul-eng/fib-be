@@ -7,6 +7,7 @@ import {
   IsPositive,
   IsString,
   IsUUID,
+  Max,
   Min,
 } from 'class-validator';
 import { OmitType, PartialType } from '@nestjs/mapped-types';
@@ -58,5 +59,6 @@ export class DuplicateAssetDto {
   @IsInt()
   @IsPositive()
   @Min(1)
+  @Max(200)
   jumlah: number;
 }

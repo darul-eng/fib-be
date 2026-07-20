@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -18,6 +19,7 @@ import { QueryLocationDto } from './dto/query-location.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 
 @Controller('locations')
 export class LocationsController {
@@ -34,43 +36,47 @@ export class LocationsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.locations.findOne(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.admin)
   @Post()
-  create(@Body() dto: CreateLocationDto) {
-    return this.locations.create(dto);
+  create(@Body() dto: CreateLocationDto, @CurrentUser() user: AuthUser) {
+    return this.locations.create(dto, user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.admin)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateLocationDto) {
-    return this.locations.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateLocationDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.locations.update(id, dto, user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.admin)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) {
-    return this.locations.remove(id);
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.locations.remove(id, user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.admin)
   @Post(':id/regenerate-token')
-  regenerateToken(@Param('id') id: string) {
-    return this.locations.regenerateQrToken(id);
+  regenerateToken(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.locations.regenerateQrToken(id, user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.admin)
   @Post(':id/set-warehouse')
-  setWarehouse(@Param('id') id: string) {
-    return this.locations.setWarehouse(id);
+  setWarehouse(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.locations.setWarehouse(id, user.id);
   }
 }
