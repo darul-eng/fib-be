@@ -1,0 +1,51 @@
+SIAF — Sistem Inventaris Aset Fakultas
+Copyright (c) 2026 darul-eng. Seluruh hak cipta dilindungi.
+
+LISENSI PERANGKAT LUNAK PROPRIETARY
+
+1. KEPEMILIKAN
+   Seluruh kode sumber, skema database, desain, dokumentasi, dan aset lain dalam
+   repositori ini ("Perangkat Lunak") adalah milik darul-eng ("Pemilik"). Pemberian
+   akses ke repositori ini kepada pihak mana pun TIDAK mengalihkan hak cipta atau
+   kepemilikan intelektual apa pun atas Perangkat Lunak.
+
+2. LISENSI PENGGUNAAN UNTUK FAKULTAS ILMU BUDAYA (FIB)
+   Pemilik memberikan kepada Fakultas Ilmu Budaya ("Penerima Lisensi") lisensi
+   terbatas, non-eksklusif, dan tidak dapat dialihkan, untuk:
+   a. menyimpan, meng-instal, mem-build, dan menjalankan Perangkat Lunak semata-mata
+      untuk kebutuhan operasional internal Penerima Lisensi;
+   b. melakukan konfigurasi (mis. environment variables, data master, tema) dan
+      perbaikan bug seperlunya agar Perangkat Lunak tetap berjalan baik di
+      lingkungan Penerima Lisensi.
+
+3. BATASAN
+   Kecuali disepakati tertulis lain dengan Pemilik, Penerima Lisensi DILARANG:
+   a. mendistribusikan, menyewakan, menjual, mensublisensikan, atau dengan cara
+      apa pun menyediakan Perangkat Lunak (seluruh atau sebagian, termasuk versi
+      yang dimodifikasi) kepada pihak ketiga mana pun, termasuk unit, fakultas,
+      atau instansi lain di luar Fakultas Ilmu Budaya;
+   b. membuat karya turunan yang ditujukan untuk digunakan atau didistribusikan
+      di luar lingkungan Fakultas Ilmu Budaya;
+   c. menghapus, menyamarkan, atau mengubah pemberitahuan hak cipta dan lisensi ini
+      pada salinan Perangkat Lunak.
+
+4. TANPA JAMINAN
+   PERANGKAT LUNAK INI DISEDIAKAN "SEBAGAIMANA ADANYA" ("AS IS"), TANPA JAMINAN
+   APA PUN BAIK TERSURAT MAUPUN TERSIRAT, TERMASUK NAMUN TIDAK TERBATAS PADA
+   JAMINAN KELAYAKAN UNTUK DIPERJUALBELIKAN ATAU KESESUAIAN UNTUK TUJUAN TERTENTU.
+
+5. BATASAN TANGGUNG JAWAB
+   DALAM KEADAAN APA PUN PEMILIK TIDAK BERTANGGUNG JAWAB ATAS KERUGIAN LANGSUNG,
+   TIDAK LANGSUNG, INSIDENTAL, ATAU KONSEKUENSIAL YANG TIMBUL DARI PENGGUNAAN
+   ATAU KETIDAKMAMPUAN MENGGUNAKAN PERANGKAT LUNAK INI.
+
+6. PENGAKHIRAN
+   Lisensi ini dapat diakhiri sewaktu-waktu oleh Pemilik apabila Penerima Lisensi
+   melanggar ketentuan pada Pasal 3. Setelah pengakhiran, Penerima Lisensi wajib
+   menghentikan penggunaan dan menghapus seluruh salinan Perangkat Lunak, kecuali
+   disepakati lain secara tertulis.
+
+7. LISENSI UNTUK PIHAK LAIN
+   Penggunaan Perangkat Lunak ini oleh fakultas, unit, atau organisasi lain di
+   luar Fakultas Ilmu Budaya memerlukan perjanjian lisensi terpisah dengan Pemilik.
+   Hubungi darul-eng untuk keperluan tersebut.

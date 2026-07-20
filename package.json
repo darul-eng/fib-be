@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "description": "SIAP - Sistem Manajeman Aset, Sarana, dan Prasarana (backend, NestJS + Prisma)",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "darul-eng",
   "scripts": {
     "build": "nest build",
     "start": "nest start",
