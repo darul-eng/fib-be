@@ -299,23 +299,20 @@ async function main() {
     'admin',
   );
 
-  // Akun developer: peran tersendiri (bukan admin) — satu-satunya yang boleh
-  // mengubah Pengaturan sistem, dipisah dari akun admin operasional supaya
-  // kredensial developer bisa diganti/dicabut sendiri.
-  console.log('Seeding akun developer...');
-  await seedUser(
-    process.env.DEV_USERNAME ?? 'developer',
-    process.env.DEV_PASSWORD ?? 'developer12345',
-    process.env.DEV_NAMA ?? 'Developer',
-    'developer',
-  );
-
   console.log('Seeding akun warehouse...');
   await seedUser(
     process.env.WAREHOUSE_USERNAME ?? 'warehouse',
     process.env.WAREHOUSE_PASSWORD ?? 'warehouse12345',
     process.env.WAREHOUSE_NAMA ?? 'Petugas Gudang',
     'warehouse',
+  );
+
+  console.log('Seeding akun pimpinan...');
+  await seedUser(
+    process.env.PIMPINAN_USERNAME ?? 'dekan',
+    process.env.PIMPINAN_PASSWORD ?? 'dekan12345',
+    process.env.PIMPINAN_NAMA ?? 'Dekan',
+    'pimpinan',
   );
 
   console.log('Seeding tema default...');
