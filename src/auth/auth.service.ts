@@ -125,9 +125,6 @@ export class AuthService {
   ): Promise<void> {
     const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
     if (!target) throw new NotFoundException('Pengguna tidak ditemukan');
-    if (target.authProvider !== 'local') {
-      throw new BadRequestException('Akun ini login via Keycloak, password tidak bisa diubah di sini');
-    }
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
     await this.prisma.user.update({ where: { id: targetUserId }, data: { passwordHash } });

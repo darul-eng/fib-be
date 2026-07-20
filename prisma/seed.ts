@@ -206,6 +206,7 @@ const locations: LocationDef[] = [
           { nama: 'Ruang Dekan' },
           { nama: 'Ruang Tata Usaha' },
           { nama: 'Lobi Utama' },
+          { nama: 'Ruang Gudang Aset' },
         ],
       },
       {
@@ -226,10 +227,6 @@ const locations: LocationDef[] = [
         children: [{ nama: 'Ruang Kuliah 201' }, { nama: 'Laboratorium Bahasa' }],
       },
     ],
-  },
-  {
-    nama: 'Gudang FIB',
-    children: [{ nama: 'Lantai 1', children: [{ nama: 'Ruang Gudang Aset' }] }],
   },
 ];
 
