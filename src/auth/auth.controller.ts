@@ -29,6 +29,16 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
+  // path harus sama antara set & clear agar browser mengenali cookie yang sama
+  private cookieOptions() {
+    return {
+      httpOnly: true,
+      sameSite: 'lax' as const,
+      secure: this.config.get('NODE_ENV') === 'production',
+      path: '/',
+    };
+  }
+
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
@@ -39,9 +49,7 @@ export class AuthController {
   ) {
     const { token, user } = await this.auth.login(dto);
     res.cookie(AUTH_COOKIE_NAME, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: this.config.get('NODE_ENV') === 'production',
+      ...this.cookieOptions(),
       maxAge: COOKIE_MAX_AGE_MS,
     });
     return user;
@@ -50,7 +58,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(200)
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(AUTH_COOKIE_NAME);
+    res.clearCookie(AUTH_COOKIE_NAME, this.cookieOptions());
     return { ok: true };
   }
 

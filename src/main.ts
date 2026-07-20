@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -11,12 +12,17 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Di belakang reverse proxy (nginx dll): agar req.ip, rate-limit, dan
+  // deteksi HTTPS untuk cookie `secure` berjalan benar.
+  app.set('trust proxy', 1);
+
+  app.use(helmet());
   app.use(cookieParser());
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
-  // Validasi DTO otomatis
+  // Validasi DTO otomatis; tolak field yang tidak dikenal di DTO
   app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, transform: true }),
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
 
   // CORS untuk frontend
