@@ -13,6 +13,8 @@ import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
+const BCRYPT_ROUNDS = 12;
+
 export type SafeUser = {
   id: string;
   nama: string;
@@ -84,7 +86,7 @@ export class AuthService {
     });
     if (existing) throw new ConflictException('Username sudah digunakan');
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     const user = await this.prisma.user.create({
       data: {
         nama: dto.nama,
@@ -109,7 +111,7 @@ export class AuthService {
       throw new UnauthorizedException('Password saat ini salah');
     }
 
-    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
     await this.prisma.activityLog.create({
       data: { userId, aksi: 'password_changed', entitas: 'user', entitasId: userId },
@@ -126,7 +128,7 @@ export class AuthService {
     const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
     if (!target) throw new NotFoundException('Pengguna tidak ditemukan');
 
-    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
     await this.prisma.user.update({ where: { id: targetUserId }, data: { passwordHash } });
     await this.prisma.activityLog.create({
       data: {

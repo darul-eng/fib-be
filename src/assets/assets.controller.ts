@@ -17,12 +17,12 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { memoryStorage } from 'multer';
 import type { Response } from 'express';
 import { UserRole } from '@prisma/client';
 import { AssetsService } from './assets.service';
 import { AssetsImportService } from './assets-import.service';
+import { AssetPhotoService } from './asset-photo.service';
 import { CreateAssetDto, DuplicateAssetDto, UpdateAssetDto } from './dto/create-asset.dto';
 import { QueryAssetDto } from './dto/query-asset.dto';
 import { ImportCommitDto } from './dto/import-asset.dto';
@@ -32,7 +32,6 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
 
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
-const PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('assets')
@@ -83,30 +82,38 @@ export class AssetsController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.admin)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAssetDto) {
-    return this.assets.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAssetDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.assets.update(id, dto, user.id);
   }
 
   @UseGuards(RolesGuard)
   @Roles(UserRole.admin)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.assets.remove(id);
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.assets.remove(id, user.id);
   }
 
   @UseGuards(RolesGuard)
   @Roles(UserRole.admin)
   @Post(':id/duplicate')
-  duplicate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: DuplicateAssetDto) {
-    return this.assets.duplicate(id, dto.jumlah);
+  duplicate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DuplicateAssetDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.assets.duplicate(id, dto.jumlah, user.id);
   }
 
   @UseGuards(RolesGuard)
   @Roles(UserRole.admin)
   @Post(':id/regenerate-token')
-  regenerateToken(@Param('id', ParseUUIDPipe) id: string) {
-    return this.assets.regenerateQrToken(id);
+  regenerateToken(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.assets.regenerateQrToken(id, user.id);
   }
 
   @UseGuards(RolesGuard)
@@ -114,29 +121,17 @@ export class AssetsController {
   @Post(':id/photo')
   @UseInterceptors(
     FileInterceptor('foto', {
-      storage: diskStorage({
-        destination: join(process.cwd(), 'uploads', 'assets'),
-        filename: (_req, file, cb) => {
-          const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-          cb(null, `${unique}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: PHOTO_MAX_BYTES },
-      fileFilter: (_req, file, cb) => {
-        if (!PHOTO_MIME_TYPES.includes(file.mimetype)) {
-          cb(new BadRequestException('Tipe file harus JPEG, PNG, atau WebP'), false);
-          return;
-        }
-        cb(null, true);
-      },
     }),
   )
   async uploadPhoto(
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: AuthUser,
   ) {
     if (!file) throw new BadRequestException('File foto wajib diunggah');
-    return this.assets.updatePhoto(id, `/uploads/assets/${file.filename}`);
+    return this.assets.updatePhoto(id, file.buffer, user.id);
   }
 
   @UseGuards(RolesGuard)

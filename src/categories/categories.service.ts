@@ -1,11 +1,15 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityLogService } from '../common/activity-log.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/create-category.dto';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activityLog: ActivityLogService,
+  ) {}
 
   findAll() {
     return this.prisma.category.findMany({
@@ -23,8 +27,8 @@ export class CategoriesService {
     return category;
   }
 
-  create(dto: CreateCategoryDto) {
-    return this.prisma.category.create({
+  async create(dto: CreateCategoryDto, userId: string) {
+    const category = await this.prisma.category.create({
       data: {
         nama: dto.nama,
         deskripsi: dto.deskripsi,
@@ -44,12 +48,19 @@ export class CategoriesService {
       },
       include: { fields: true },
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'category_created',
+      entitas: 'category',
+      entitasId: category.id,
+    });
+    return category;
   }
 
-  async update(id: string, dto: UpdateCategoryDto) {
+  async update(id: string, dto: UpdateCategoryDto, userId: string) {
     await this.findOne(id);
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.fields) {
         await tx.categoryField.deleteMany({ where: { categoryId: id } });
       }
@@ -75,9 +86,17 @@ export class CategoriesService {
         include: { fields: { orderBy: { urutan: 'asc' } } },
       });
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'category_updated',
+      entitas: 'category',
+      entitasId: id,
+      detail: JSON.parse(JSON.stringify(dto)) as Prisma.InputJsonValue,
+    });
+    return updated;
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId: string) {
     await this.findOne(id);
     try {
       await this.prisma.category.delete({ where: { id } });
@@ -87,5 +106,11 @@ export class CategoriesService {
       }
       throw e;
     }
+    await this.activityLog.record({
+      userId,
+      aksi: 'category_deleted',
+      entitas: 'category',
+      entitasId: id,
+    });
   }
 }

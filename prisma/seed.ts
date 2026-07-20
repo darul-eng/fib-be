@@ -273,25 +273,38 @@ const defaultTheme = {
   bg: '#F8FAFC',           // latar halaman
 };
 
-async function seedUser(username: string, password: string, nama: string, role: UserRole) {
+// Password acak yang kuat, dipakai saat env var *_PASSWORD tidak diset —
+// menggantikan password default lemah yang sebelumnya bisa ditebak (mis. "admin12345").
+function randomStrongPassword(): string {
+  return randomBytes(18).toString('base64url');
+}
+
+async function seedUser(username: string, password: string | undefined, nama: string, role: UserRole) {
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
     console.log(`  Akun "${username}" sudah ada, lewati.`);
     return;
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const generated = !password;
+  const finalPassword = password ?? randomStrongPassword();
+
+  const passwordHash = await bcrypt.hash(finalPassword, 12);
   await prisma.user.create({
     data: { nama, username, passwordHash, role },
   });
   console.log(`  ✓ Akun ${role} "${username}" dibuat.`);
+  if (generated) {
+    console.log(`    Password digenerate otomatis (env var belum diset): ${finalPassword}`);
+    console.log('    Catat dan segera ganti setelah login pertama.');
+  }
 }
 
 async function main() {
   console.log('Seeding akun admin awal...');
   await seedUser(
     process.env.ADMIN_USERNAME ?? 'admin',
-    process.env.ADMIN_PASSWORD ?? 'admin12345',
+    process.env.ADMIN_PASSWORD,
     process.env.ADMIN_NAMA ?? 'Administrator',
     'admin',
   );
@@ -299,7 +312,7 @@ async function main() {
   console.log('Seeding akun warehouse...');
   await seedUser(
     process.env.WAREHOUSE_USERNAME ?? 'warehouse',
-    process.env.WAREHOUSE_PASSWORD ?? 'warehouse12345',
+    process.env.WAREHOUSE_PASSWORD,
     process.env.WAREHOUSE_NAMA ?? 'Petugas Gudang',
     'warehouse',
   );
@@ -307,7 +320,7 @@ async function main() {
   console.log('Seeding akun pimpinan...');
   await seedUser(
     process.env.PIMPINAN_USERNAME ?? 'dekan',
-    process.env.PIMPINAN_PASSWORD ?? 'dekan12345',
+    process.env.PIMPINAN_PASSWORD,
     process.env.PIMPINAN_NAMA ?? 'Dekan',
     'pimpinan',
   );

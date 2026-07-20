@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, LocationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityLogService } from '../common/activity-log.service';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
 import { QueryLocationDto } from './dto/query-location.dto';
 import { generateQrToken } from '../common/qr-token.util';
@@ -28,7 +29,10 @@ const TYPE_LABEL: Record<LocationType, string> = {
 
 @Injectable()
 export class LocationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activityLog: ActivityLogService,
+  ) {}
 
   // Tiga mode, dipilih dari query yang dikirim:
   // - `search`/`tipe` : pencarian nama dan/atau filter tipe (dipakai pemilih ruangan
@@ -158,11 +162,11 @@ export class LocationsService {
     }
   }
 
-  async create(dto: CreateLocationDto) {
+  async create(dto: CreateLocationDto, userId: string) {
     await this.validateParent(dto.tipe, dto.parentId);
     await this.assertNoDuplicateSibling(dto.tipe, dto.parentId, dto.nama);
 
-    return this.prisma.location.create({
+    const location = await this.prisma.location.create({
       data: {
         nama: dto.nama,
         tipe: dto.tipe,
@@ -170,9 +174,16 @@ export class LocationsService {
         qrToken: generateQrToken(),
       },
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'location_created',
+      entitas: 'location',
+      entitasId: location.id,
+    });
+    return location;
   }
 
-  async update(id: string, dto: UpdateLocationDto) {
+  async update(id: string, dto: UpdateLocationDto, userId: string) {
     const current = await this.findOne(id);
     const tipe = dto.tipe ?? current.tipe;
     const parentId = dto.parentId !== undefined ? dto.parentId : (current.parentId ?? undefined);
@@ -184,13 +195,21 @@ export class LocationsService {
       await this.assertChildrenCompatible(id, dto.tipe);
     }
 
-    return this.prisma.location.update({
+    const updated = await this.prisma.location.update({
       where: { id },
       data: { nama: dto.nama, tipe: dto.tipe, parentId: dto.parentId },
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'location_updated',
+      entitas: 'location',
+      entitasId: id,
+      detail: JSON.parse(JSON.stringify(dto)) as Prisma.InputJsonValue,
+    });
+    return updated;
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId: string) {
     await this.findOne(id);
     try {
       await this.prisma.location.delete({ where: { id } });
@@ -200,34 +219,57 @@ export class LocationsService {
       }
       throw e;
     }
+    await this.activityLog.record({
+      userId,
+      aksi: 'location_deleted',
+      entitas: 'location',
+      entitasId: id,
+    });
   }
 
   // Token baru bila kertas QR fisik rusak/pudar — URL lama otomatis tidak berlaku.
-  async regenerateQrToken(id: string) {
+  async regenerateQrToken(id: string, userId: string) {
     await this.findOne(id);
-    return this.prisma.location.update({
+    const updated = await this.prisma.location.update({
       where: { id },
       data: { qrToken: generateQrToken() },
     });
+    await this.activityLog.record({
+      userId,
+      aksi: 'location_token_regenerated',
+      entitas: 'location',
+      entitasId: id,
+    });
+    return updated;
   }
 
   // Menandai/membatalkan satu ruangan sebagai "Gudang" — tujuan default tombol
   // Masuk di Menu Warehouse (PRD 5.12). Hanya satu lokasi boleh isWarehouse=true
   // sekaligus, jadi menandai lokasi baru otomatis membatalkan yang lama.
-  async setWarehouse(id: string) {
+  async setWarehouse(id: string, userId: string) {
     const location = await this.findOne(id);
     if (location.tipe !== LocationType.ruangan) {
       throw new ConflictException('Hanya lokasi bertipe Ruangan yang bisa dijadikan Gudang');
     }
 
+    let updated;
     if (location.isWarehouse) {
-      return this.prisma.location.update({ where: { id }, data: { isWarehouse: false } });
+      updated = await this.prisma.location.update({ where: { id }, data: { isWarehouse: false } });
+    } else {
+      const [, result] = await this.prisma.$transaction([
+        this.prisma.location.updateMany({ where: { isWarehouse: true }, data: { isWarehouse: false } }),
+        this.prisma.location.update({ where: { id }, data: { isWarehouse: true } }),
+      ]);
+      updated = result;
     }
 
-    const [, updated] = await this.prisma.$transaction([
-      this.prisma.location.updateMany({ where: { isWarehouse: true }, data: { isWarehouse: false } }),
-      this.prisma.location.update({ where: { id }, data: { isWarehouse: true } }),
-    ]);
+    await this.activityLog.record({
+      userId,
+      aksi: 'location_warehouse_toggled',
+      entitas: 'location',
+      entitasId: id,
+      detail: { isWarehouse: updated.isWarehouse },
+    });
     return updated;
   }
 }

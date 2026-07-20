@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { AuditService } from './audit.service';
 import { FinishAuditDto, ManualCheckDto, MoveHereDto, ScanAuditDto, StartAuditDto } from './dto/audit.dto';
@@ -27,27 +27,27 @@ export class AuditController {
   }
 
   @Get(':id')
-  getView(@Param('id') id: string) {
+  getView(@Param('id', ParseUUIDPipe) id: string) {
     return this.audit.getView(id);
   }
 
   @Post(':id/scan')
-  scan(@Param('id') id: string, @Body() dto: ScanAuditDto, @CurrentUser() user: AuthUser) {
+  scan(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ScanAuditDto, @CurrentUser() user: AuthUser) {
     return this.audit.scan(id, dto.token, user.id);
   }
 
   @Post(':id/manual')
-  manualCheck(@Param('id') id: string, @Body() dto: ManualCheckDto, @CurrentUser() user: AuthUser) {
+  manualCheck(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ManualCheckDto, @CurrentUser() user: AuthUser) {
     return this.audit.manualCheck(id, dto.assetId, user.id);
   }
 
   @Post(':id/move-here')
-  moveHere(@Param('id') id: string, @Body() dto: MoveHereDto, @CurrentUser() user: AuthUser) {
+  moveHere(@Param('id', ParseUUIDPipe) id: string, @Body() dto: MoveHereDto, @CurrentUser() user: AuthUser) {
     return this.audit.moveHere(id, dto.assetId, user.id);
   }
 
   @Post(':id/finish')
-  finish(@Param('id') id: string, @Body() dto: FinishAuditDto) {
+  finish(@Param('id', ParseUUIDPipe) id: string, @Body() dto: FinishAuditDto) {
     return this.audit.finish(id, dto.catatan);
   }
 }

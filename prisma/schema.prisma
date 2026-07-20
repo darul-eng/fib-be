@@ -222,7 +222,9 @@ model Movement {
   catatan        String?
   createdAt      DateTime        @default(now()) @map("created_at")
 
-  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  // Restrict, bukan Cascade: riwayat perpindahan adalah jejak audit dan tidak boleh
+  // ikut terhapus bila suatu saat aset dihapus permanen (saat ini aset hanya soft-delete).
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Restrict)
   fromLocation Location? @relation("MoveFromLocation", fields: [fromLocationId], references: [id])
   toLocation   Location? @relation("MoveToLocation", fields: [toLocationId], references: [id])
   fromPerson   Person?   @relation("MoveFromPerson", fields: [fromPersonId], references: [id])
