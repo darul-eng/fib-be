@@ -34,7 +34,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
-  console.log(`SIAP API berjalan di http://localhost:${port}/api`);
+  // Hanya nginx (di server yang sama) yang perlu akses backend ini secara
+  // langsung; bind ke localhost saja agar tidak ikut terekspos ke jaringan lain.
+  const host = process.env.HOST ?? '127.0.0.1';
+  await app.listen(port, host);
+  console.log(`SIAP API berjalan di http://${host}:${port}/api`);
 }
 bootstrap();
