@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import * as QRCode from 'qrcode';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../prisma/prisma.service';
-import { SettingsService } from '../settings/settings.service';
 import { PrintQrDto } from './dto/print-qr.dto';
 
 type PrintLabelItem = {
@@ -23,7 +22,6 @@ export class QrService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    private readonly settings: SettingsService,
   ) {}
 
   buildPublicUrl(kind: 'a' | 'r', token: string): string {
@@ -52,20 +50,10 @@ export class QrService {
     const items = await this.resolveItems(input);
     if (items.length === 0) throw new BadRequestException('Tidak ada item untuk dicetak');
 
-    const columns = Math.min(4, Math.max(2, input.columns ?? 3));
-    const qrSize = input.size === 'kecil' ? 80 : 110;
-    const facultyName = await this.getFacultyName();
+    const columns = Math.min(4, Math.max(2, input.columns ?? 4));
+    const qrSize = input.size === 'kecil' ? 32 : 42;
 
-    return this.renderPdf(items, columns, qrSize, facultyName);
-  }
-
-  private async getFacultyName(): Promise<string> {
-    try {
-      const value = (await this.settings.get('faculty')) as { name?: string } | null;
-      return value?.name || 'Fakultas';
-    } catch {
-      return 'Fakultas';
-    }
+    return this.renderPdf(items, columns, qrSize);
   }
 
   private async resolveItems(input: PrintQrDto): Promise<PrintLabelItem[]> {
@@ -94,14 +82,19 @@ export class QrService {
     return items;
   }
 
-  private async renderPdf(
-    items: PrintLabelItem[],
-    columns: number,
-    qrSize: number,
-    facultyName: string,
-  ): Promise<Buffer> {
+  // Label horizontal kecil: QR di kiri, 2 baris kode/nama di kanan (dipisah garis) —
+  // meniru stiker inventaris fisik (kode klasifikasi di atas, kode aset di bawah).
+  private async renderPdf(items: PrintLabelItem[], columns: number, qrSize: number): Promise<Buffer> {
+    const gap = 6;
+    const labelHeight = qrSize + 8;
     const cellWidth = (PAGE_WIDTH - PAGE_MARGIN * 2) / columns;
-    const cellHeight = qrSize + 46;
+    const cellHeight = labelHeight + gap;
+    const labelWidth = cellWidth - gap;
+    const qrBoxWidth = labelHeight;
+    const rowHeight = labelHeight / 2;
+    const textX = qrBoxWidth + 3;
+    const textWidth = labelWidth - qrBoxWidth - 6;
+
     const rowsPerPage = Math.max(1, Math.floor((PAGE_HEIGHT - PAGE_MARGIN * 2) / cellHeight));
     const perPage = columns * rowsPerPage;
 
@@ -120,26 +113,44 @@ export class QrService {
       const x = PAGE_MARGIN + col * cellWidth;
       const y = PAGE_MARGIN + row * cellHeight;
 
-      // Garis potong putus-putus antar label agar mudah digunting.
-      doc.rect(x, y, cellWidth, cellHeight).dash(2, { space: 2 }).stroke('#cbd5e1');
-      doc.undash();
+      // Kotak label (garis potong sekaligus bingkai stiker).
+      doc.lineWidth(0.75).rect(x, y, labelWidth, labelHeight).stroke('#0f172a');
+      // Pembatas vertikal antara QR dan teks.
+      doc
+        .moveTo(x + qrBoxWidth, y)
+        .lineTo(x + qrBoxWidth, y + labelHeight)
+        .stroke('#0f172a');
+      // Pembatas horizontal antara 2 baris teks.
+      doc
+        .moveTo(x + qrBoxWidth, y + rowHeight)
+        .lineTo(x + labelWidth, y + rowHeight)
+        .stroke('#0f172a');
 
       const png = await this.generatePng(this.buildPublicUrl(item.kind, item.token));
-      const qrX = x + (cellWidth - qrSize) / 2;
-      doc.image(png, qrX, y + 6, { width: qrSize, height: qrSize });
+      const qrX = x + (qrBoxWidth - qrSize) / 2;
+      const qrY = y + (labelHeight - qrSize) / 2;
+      doc.image(png, qrX, qrY, { width: qrSize, height: qrSize });
 
       doc
-        .fontSize(7)
-        .fillColor('#334155')
-        .text(facultyName, x + 4, y + qrSize + 12, { width: cellWidth - 8, align: 'center' });
-      doc
-        .fontSize(7)
-        .fillColor('#64748b')
-        .text(item.subtitle, x + 4, y + qrSize + 22, { width: cellWidth - 8, align: 'center' });
-      doc
-        .fontSize(7)
+        .font('Helvetica-Bold')
+        .fontSize(6.5)
         .fillColor('#0f172a')
-        .text(item.title, x + 4, y + qrSize + 32, { width: cellWidth - 8, align: 'center' });
+        .text(item.subtitle, x + textX, y + (rowHeight - 6.5) / 2, {
+          width: textWidth,
+          height: rowHeight,
+          align: 'center',
+          ellipsis: true,
+        });
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(6.5)
+        .fillColor('#0f172a')
+        .text(item.title, x + textX, y + rowHeight + (rowHeight - 6.5) / 2, {
+          width: textWidth,
+          height: rowHeight,
+          align: 'center',
+          ellipsis: true,
+        });
     }
 
     doc.end();
