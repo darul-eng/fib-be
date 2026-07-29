@@ -69,17 +69,16 @@ export class AuthService {
       throw new UnauthorizedException('Akun tidak aktif');
     }
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
+    this.prisma.user
+      .update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+      .catch((err) => this.logger.error(`gagal update lastLoginAt untuk ${user.id}`, err));
     const t3 = Date.now();
 
     const token = this.jwt.sign({ sub: user.id, role: user.role });
     const t4 = Date.now();
 
     this.logger.debug(
-      `login timing username=${dto.username} findUser=${t1 - t0}ms bcrypt=${t2 - t1}ms updateLastLogin=${t3 - t2}ms sign=${t4 - t3}ms total=${t4 - t0}ms`,
+      `login timing username=${dto.username} findUser=${t1 - t0}ms bcrypt=${t2 - t1}ms sign=${t4 - t3}ms total=${t4 - t0}ms`,
     );
 
     return { token, user: toSafeUser(user) };
