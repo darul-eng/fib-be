@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { LocationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PeopleService } from './people.service';
@@ -163,8 +163,8 @@ export class AssetsService {
         ? validateAttributes(category.fields, dto.attributes)
         : undefined;
 
-    const updated = await this.prisma.asset.update({
-      where: { id },
+    const result = await this.prisma.asset.updateMany({
+      where: { id, updatedAt: new Date(dto.expectedUpdatedAt) },
       data: {
         nama: dto.nama,
         categoryId: dto.categoryId,
@@ -173,8 +173,11 @@ export class AssetsService {
         sumberDana: dto.sumberDana,
         attributes: attributes as Prisma.InputJsonValue | undefined,
       },
-      include: ASSET_INCLUDE,
     });
+    if (result.count === 0) {
+      throw new ConflictException('Aset sudah diubah oleh pengguna lain, silakan muat ulang halaman');
+    }
+    const updated = await this.findOne(id);
     await this.activityLog.record({
       userId,
       aksi: 'asset_updated',

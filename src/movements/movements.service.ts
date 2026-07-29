@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssetsService } from '../assets/assets.service';
@@ -69,8 +69,26 @@ export class MovementsService {
 
     const tipe = locationChanged ? 'lokasi' : personChanged ? 'pemegang' : 'kondisi';
 
-    const [movement, updatedAsset] = await this.prisma.$transaction([
-      this.prisma.movement.create({
+    const { movement, updatedAsset } = await this.prisma.$transaction(async (tx) => {
+      // updateMany dengan `updatedAt` sebagai penjaga optimistic lock: bila aset ini
+      // sudah dimutasi request lain sejak client membaca datanya, count = 0 dan
+      // request ini gagal bersih (409) alih-alih ikut menulis riwayat yang sudah
+      // tidak valid (mis. from/to lokasi yang salah karena keduanya membaca state lama).
+      const result = await tx.asset.updateMany({
+        where: { id: asset.id, updatedAt: new Date(dto.expectedUpdatedAt) },
+        data: {
+          locationId: locationChanged ? dto.locationId : undefined,
+          personId: personChanged ? (newPerson?.id ?? null) : undefined,
+          kondisi: kondisiChanged ? dto.kondisi : undefined,
+        },
+      });
+      if (result.count === 0) {
+        throw new ConflictException(
+          'Aset sudah diubah oleh pengguna lain, silakan muat ulang halaman sebelum mencoba lagi',
+        );
+      }
+
+      const movement = await tx.movement.create({
         data: {
           assetId: asset.id,
           tipe,
@@ -84,21 +102,19 @@ export class MovementsService {
           catatan: dto.catatan,
         },
         include: MOVEMENT_INCLUDE,
-      }),
-      this.prisma.asset.update({
+      });
+
+      const updatedAsset = await tx.asset.findUniqueOrThrow({
         where: { id: asset.id },
-        data: {
-          locationId: locationChanged ? dto.locationId : undefined,
-          personId: personChanged ? (newPerson?.id ?? null) : undefined,
-          kondisi: kondisiChanged ? dto.kondisi : undefined,
-        },
         include: {
           category: { include: { fields: { orderBy: { urutan: 'asc' } } } },
           location: true,
           person: true,
         },
-      }),
-    ]);
+      });
+
+      return { movement, updatedAsset };
+    });
 
     return { asset: updatedAsset, movement };
   }

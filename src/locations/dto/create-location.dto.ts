@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsEnum, IsISO8601, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { LocationType } from '@prisma/client';
 
@@ -32,4 +32,9 @@ export class UpdateLocationDto {
   @IsOptional()
   @IsUUID()
   parentId?: string;
+
+  // Nilai `updatedAt` yang dilihat client saat membuka form ubah — dipakai sebagai
+  // penjaga optimistic locking (lihat LocationsService.update).
+  @IsISO8601()
+  expectedUpdatedAt: string;
 }

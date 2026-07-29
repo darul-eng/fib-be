@@ -38,7 +38,12 @@ export class WarehouseService {
 
     try {
       return await this.movements.move(
-        { assetId: asset.id, locationId: gudang.id, catatan: catatan ?? DEFAULT_CATATAN_MASUK },
+        {
+          assetId: asset.id,
+          locationId: gudang.id,
+          catatan: catatan ?? DEFAULT_CATATAN_MASUK,
+          expectedUpdatedAt: asset.updatedAt.toISOString(),
+        },
         userId,
       );
     } catch (e) {
@@ -54,7 +59,12 @@ export class WarehouseService {
 
     try {
       return await this.movements.move(
-        { assetId: asset.id, locationId, catatan: catatan ?? DEFAULT_CATATAN_KELUAR },
+        {
+          assetId: asset.id,
+          locationId,
+          catatan: catatan ?? DEFAULT_CATATAN_KELUAR,
+          expectedUpdatedAt: asset.updatedAt.toISOString(),
+        },
         userId,
       );
     } catch (e) {

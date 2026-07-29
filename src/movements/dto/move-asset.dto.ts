@@ -1,10 +1,16 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { IsEnum, IsISO8601, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { AssetCondition } from '@prisma/client';
 
 export class MoveAssetDto {
   @IsUUID()
   assetId: string;
+
+  // Nilai `updatedAt` aset yang dilihat client sebelum mengirim mutasi — dipakai
+  // sebagai penjaga optimistic locking agar dua mutasi bersamaan pada aset yang
+  // sama tidak menghasilkan riwayat yang saling bertentangan (lihat MovementsService.move).
+  @IsISO8601()
+  expectedUpdatedAt: string;
 
   @IsOptional()
   @IsUUID()
