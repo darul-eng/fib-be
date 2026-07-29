@@ -1,6 +1,7 @@
 import {
   IsEnum,
   IsInt,
+  IsISO8601,
   IsNumber,
   IsObject,
   IsOptional,
@@ -53,7 +54,12 @@ export class CreateAssetDto {
 // (modul movements) agar setiap perubahan tercatat di riwayat — lihat Tahap 3.
 export class UpdateAssetDto extends PartialType(
   OmitType(CreateAssetDto, ['kondisi', 'locationId', 'holderName'] as const),
-) {}
+) {
+  // Nilai `updatedAt` yang dilihat client saat membuka form ubah — dipakai sebagai
+  // penjaga optimistic locking (lihat AssetsService.update).
+  @IsISO8601()
+  expectedUpdatedAt: string;
+}
 
 export class DuplicateAssetDto {
   @IsInt()

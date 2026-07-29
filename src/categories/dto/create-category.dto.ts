@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   ValidateNested,
@@ -67,4 +68,10 @@ export class UpdateCategoryDto {
   @ValidateNested({ each: true })
   @Type(() => CategoryFieldDto)
   fields?: CategoryFieldDto[];
+
+  // Nilai `updatedAt` yang dilihat client saat membuka form ubah — dipakai sebagai
+  // penjaga optimistic locking agar dua edit bersamaan pada kategori yang sama
+  // tidak saling menimpa diam-diam (lihat CategoriesService.update).
+  @IsISO8601()
+  expectedUpdatedAt: string;
 }

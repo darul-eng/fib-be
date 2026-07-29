@@ -195,10 +195,14 @@ export class LocationsService {
       await this.assertChildrenCompatible(id, dto.tipe);
     }
 
-    const updated = await this.prisma.location.update({
-      where: { id },
+    const result = await this.prisma.location.updateMany({
+      where: { id, updatedAt: new Date(dto.expectedUpdatedAt) },
       data: { nama: dto.nama, tipe: dto.tipe, parentId: dto.parentId },
     });
+    if (result.count === 0) {
+      throw new ConflictException('Lokasi sudah diubah oleh pengguna lain, silakan muat ulang halaman');
+    }
+    const updated = await this.findOne(id);
     await this.activityLog.record({
       userId,
       aksi: 'location_updated',

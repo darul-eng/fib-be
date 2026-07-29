@@ -6,6 +6,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 async function bootstrap() {
   mkdirSync(join(process.cwd(), 'uploads', 'assets'), { recursive: true });
@@ -24,6 +25,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
+  app.useGlobalFilters(new PrismaExceptionFilter());
 
   // CORS untuk frontend
   app.enableCors({

@@ -144,7 +144,10 @@ export class AuditService {
     if (!asset) throw new NotFoundException('Aset tidak ditemukan');
 
     if (asset.locationId !== session.locationId) {
-      await this.movements.move({ assetId: asset.id, locationId: session.locationId }, userId);
+      await this.movements.move(
+        { assetId: asset.id, locationId: session.locationId, expectedUpdatedAt: asset.updatedAt.toISOString() },
+        userId,
+      );
     }
     await this.upsertFoundOrMismatch(session.id, asset.id, 'ditemukan', null);
     return this.buildView(session.id);

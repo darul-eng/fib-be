@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
@@ -91,16 +92,23 @@ export class AuthService {
     if (existing) throw new ConflictException('Username sudah digunakan');
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
-    const user = await this.prisma.user.create({
-      data: {
-        nama: dto.nama,
-        username: dto.username,
-        email: dto.email,
-        passwordHash,
-        role: dto.role,
-      },
-    });
-    return toSafeUser(user);
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          nama: dto.nama,
+          username: dto.username,
+          email: dto.email,
+          passwordHash,
+          role: dto.role,
+        },
+      });
+      return toSafeUser(user);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException('Username sudah digunakan');
+      }
+      throw e;
+    }
   }
 
   // Self-service: user harus membuktikan tahu password lamanya sebelum diganti.
