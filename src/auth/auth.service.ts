@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -41,33 +42,30 @@ function toSafeUser(user: {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
   ) {}
 
   async login(dto: LoginDto): Promise<{ token: string; user: SafeUser }> {
+    const t0 = Date.now();
     const user = await this.prisma.user.findUnique({
       where: { username: dto.username },
     });
+    const t1 = Date.now();
 
     const valid =
       user?.passwordHash && (await bcrypt.compare(dto.password, user.passwordHash));
-
-    await this.prisma.activityLog.create({
-      data: {
-        userId: user?.id,
-        aksi: valid ? 'login_success' : 'login_failed',
-        entitas: 'user',
-        entitasId: user?.id,
-        detail: { username: dto.username },
-      },
-    });
+    const t2 = Date.now();
 
     if (!user || !valid) {
+      this.logger.debug(`login timing username=${dto.username} findUser=${t1 - t0}ms bcrypt=${t2 - t1}ms result=invalid`);
       throw new UnauthorizedException('Username atau password salah');
     }
     if (user.status !== 'aktif') {
+      this.logger.debug(`login timing username=${dto.username} findUser=${t1 - t0}ms bcrypt=${t2 - t1}ms result=inactive`);
       throw new UnauthorizedException('Akun tidak aktif');
     }
 
@@ -75,8 +73,15 @@ export class AuthService {
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
+    const t3 = Date.now();
 
     const token = this.jwt.sign({ sub: user.id, role: user.role });
+    const t4 = Date.now();
+
+    this.logger.debug(
+      `login timing username=${dto.username} findUser=${t1 - t0}ms bcrypt=${t2 - t1}ms updateLastLogin=${t3 - t2}ms sign=${t4 - t3}ms total=${t4 - t0}ms`,
+    );
+
     return { token, user: toSafeUser(user) };
   }
 
