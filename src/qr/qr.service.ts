@@ -4,6 +4,7 @@ import * as QRCode from 'qrcode';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrintQrDto } from './dto/print-qr.dto';
+import { AssetsService } from '../assets/assets.service';
 
 type PrintLabelItem = {
   token: string;
@@ -22,6 +23,7 @@ export class QrService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly assets: AssetsService,
   ) {}
 
   buildPublicUrl(kind: 'a' | 'r', token: string): string {
@@ -76,6 +78,13 @@ export class QrService {
       });
       for (const l of locations) {
         items.push({ token: l.qrToken, kind: 'r', title: l.nama, subtitle: 'Ruangan' });
+      }
+    }
+
+    if (input.assetLocationId) {
+      const assets = await this.assets.findForPrintByLocation(input.assetLocationId);
+      for (const a of assets) {
+        items.push({ token: a.qrToken, kind: 'a', title: a.nama, subtitle: a.kode });
       }
     }
 

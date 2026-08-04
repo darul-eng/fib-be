@@ -58,6 +58,21 @@ export class AssetsService {
     return { data, total, page, limit };
   }
 
+  // Dipakai cetak QR massal per lokasi (Menu Cetak QR) — seluruh aset di bawah
+  // lokasi terpilih (gedung/lantai/ruangan), tanpa paginasi, karena jumlah label
+  // yang dicetak harus mengikuti jumlah aset sesungguhnya, bukan batas halaman list.
+  async findForPrintByLocation(locationId: string) {
+    const where: Prisma.AssetWhereInput = {
+      deletedAt: null,
+      ...(await this.resolveLocationFilter(locationId)),
+    };
+    return this.prisma.asset.findMany({
+      where,
+      select: { kode: true, nama: true, qrToken: true },
+      orderBy: { kode: 'asc' },
+    });
+  }
+
   // Aset selalu ditempatkan di ruangan (lihat validasi di create()), jadi filter
   // `locationId` bertipe gedung/lantai perlu diperluas turun ke ruangan-ruangan di
   // bawahnya — kalau tidak, memfilter per gedung/lantai selalu menghasilkan 0 aset.
